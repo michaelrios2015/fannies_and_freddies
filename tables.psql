@@ -1,13 +1,31 @@
- 
-CREAT TABLE IF NOT EXISTS fannies (
-    cusip VARCHAR,
+
+CREATE TYPE istbaelig_type AS ENUM ('none', '15 year', '30 year');
+
+
+CREATE TABLE IF NOT EXISTS fannies (
+    cusip VARCHAR PRIMARY KEY,
     name VARCHAR,
     indicator VARCHAR,
     issuedate DATE,
     maturitydate DATE,
     originalface DOUBLE PRECISION,
-    istbaelig BOOLEAN
+    istbaelig istbaelig_type 
 );
+
+
+CREATE TABLE IF NOT EXISTS fanniebodies (
+    cusip VARCHAR,
+    coupon DOUBLE PRECISION,
+    remainingbalance DOUBLE PRECISION,
+    Factor DOUBLE PRECISION,
+    gwac DOUBLE PRECISION,
+    wam INTEGER,
+    wala INTEGER,
+    date DATE, 
+    PRIMARY KEY (cusip, date)
+);
+
+31360FCE3,5.926,7292.67,0.00027771,6.875,23,457,2021-12-01
 
 Prefix|Security Identifier|CUSIP|Security Factor Date|Security Factor|Payment Delay Days|Security Data Correction Indicator|Security Status Indicator|Security Notification Indicator|Security Description|Issuer|Issue Date|Maturity Date|Updated Longest Maturity Date|Issuance Investor Security UPB|Current Investor Security UPB|WA Net Interest Rate|WA Issuance Interest Rate|WA Current Interest Rate|WA Net Accrual Interest Rate|WA Loan Term|WA Issuance Remaining Months to Maturity|WA Current Remaining Months to Maturity|WA Loan Age|WA Mortgage Loan Amount|Average Mortgage Loan Amount|WA Loan-To-Value (LTV)|WA Combined Loan-To-Value (CLTV)|WA Debt-To-Income (DTI)|WA Borrower Credit Score|Filler|Filler|Loan Count|Third Party Origination UPB Percent|Seller Name|Seller City|Seller State|Servicer Name|Servicer City|Servicer State|Delinquent Loans Purchased (Prior Month UPB)|Delinquent Loans Purchased (Loan Count)|Eligible for Resecuritization|Notes|Notes Ongoing|Interest Only Security Indicator|WA Months to Amortization|Prepayment Penalty Indicator|Reduced Minimum Servicing Indicator|Subtype|Index|WA Mortgage Margin|WA MBS PC Margin|Interest Rate Adjustment Frequency|Interest Rate Lookback|Payment Adjustment Frequency|Payment Lookback|Convertibility Indicator|Negative Amortization Indicator|Negative Amortization Factor|WA Negative Amortization Limit|Initial Fixed Rate Period|First Rate Adjustment Date|First Payment Adjustment Date|WA Months to Next Rate Adjustment Date|WA Life Interest Rate Ceiling|WA Net Life Interest Rate Ceiling|WA Life Interest Rate Floor|WA Net Life Interest Rate Floor|Initial Interest Rate Cap Up %|Initial Interest Rate Cap Down %|Periodic Interest Rate Cap Up %|Periodic Interest Rate Cap Down %|Initial Step Fixed-Rate Period|Step Rate Adjustment Frequency|Next Step Rate Adjustment Date|WA Months to Next Step Rate Adjustment|Periodic Step Rate Cap Up %|WA Origination Mortgage Loan Amount|Average Origination Mortgage Loan Amount|WA Origination Interest Rate|WA Origination Loan Term|WA Origination Loan-To-Value (LTV)|WA Origination Combined Loan-To-Value (CLTV)|WA Origination Debt-To-Income (DTI)|WA Origination Credit Score|Filler|Filler|Origination Third Party Origination UPB Percent|WA Estimated Loan-To-Value (ELTV)|WA Updated Credit Score
 AS|
@@ -37,3 +55,68 @@ FNM|
 63000.00|
 63000.00|
 ||||||1||WASHINGTON MUTUAL BANK, FA|||JPMORGAN CHASE BANK, NATIONAL ASSOCIATION|COLUMBUS|OH|0.00|0|Y||The Interest Rate Adjustment Date has been revised which may also impact the index for this security.|N||N|N|1A F|021|2.199|1.250|1|15|12|0|N|Y|0.00000000|999.999|00|051984|121984|1|16.875|15.926|6.875|5.926|77.777|77.777|77.777|77.777||||||||||||||||||
+
+
+CREATE TABLE IF NOT EXISTS freddies (
+    cusip VARCHAR PRIMARY KEY,
+    name VARCHAR,
+    indicator VARCHAR,
+    issuedate DATE,
+    maturitydate DATE,
+    originalface DOUBLE PRECISION,
+    istbaelig istbaelig_type 
+);
+
+
+CREATE TABLE IF NOT EXISTS freddiebodies (
+    cusip VARCHAR,
+    coupon DOUBLE PRECISION,
+    remainingbalance DOUBLE PRECISION,
+    Factor DOUBLE PRECISION,
+    gwac DOUBLE PRECISION,
+    wam INTEGER,
+    wala INTEGER,
+    date DATE, 
+    PRIMARY KEY (cusip, date)
+);
+
+
+cusip,name,indicator,issuedate,maturitydate,originalface,istbaelig
+31296JAA4,A10001,A1,2003-06-01,2033-06-01,1155395.0,none
+
+cusip,coupon,remainingbalance,factor,gwac,wam,wala,date
+31296JAA4,5.500,85053.73,0.07361442,5.875,89,222,2012-12-01
+
+A1|
+A10001|
+31296JAA4|
+122021|
+0.07361442|
+45|
+Y|
+A|
+7|
+FGPC 05.5000 A1-A10001|
+FRE|
+06012003|
+062033|
+062033|
+1155395.00|
+85053.73|
+5.500|
+5.875|
+5.875|
+|
+360|
+360|
+89|
+222|
+200000.00|
+200000.00|
+62|
+|
+|
+656|
+|
+|
+1||TAYLOR, BEAN & WHITAKER MORTGAGE CORP.|OCALA|FL|NATIONSTAR MORTGAGE LLC|COPPELL|TX|0.00|0|Y|||N||N|N||||||||||||||||||||||||||||||||||||||||||

@@ -9,9 +9,11 @@ conn = psycopg2.connect(
 )
 
 # change this monthly
-data_path = 'cvs_readers/data/input/FNM_MF_202202.txt'
+data_path = 'cvs_readers/data/input/fd211206.txt'
 
-date = data_path[-10:-6] + "-" + data_path[-6:-4] + "-01"
+# date = data_path[-10:-6] + "-" + data_path[-6:-4] + "-01"
+# not sure how to get the date correctly
+date = '2012-12-01'
 
 with open(data_path, newline='') as csvfile:
     data = csv.reader(csvfile, delimiter='|')
@@ -90,7 +92,7 @@ with open(data_path, newline='') as csvfile:
 headfields = ["cusip", "name", "indicator", "issuedate",
               "maturitydate", "originalface", "istbaelig"]
 
-with open('cvs_readers/data/output/fannies.cvs', 'w', newline='') as csvfile:
+with open('cvs_readers/data/output/freddies.cvs', 'w', newline='') as csvfile:
     # creating a csv writer object
     csvwriter = csv.writer(csvfile)
 
@@ -104,7 +106,7 @@ with open('cvs_readers/data/output/fannies.cvs', 'w', newline='') as csvfile:
 bodyFields = ["cusip", "coupon", "remainingbalance",
               "factor", "gwac", "wam", "wala", "date"]
 
-with open('cvs_readers/data/output/fanniebodies.cvs', 'w', newline='') as csvfile:
+with open('cvs_readers/data/output/freddiebodies.cvs', 'w', newline='') as csvfile:
     # creating a csv writer object
     csvwriter = csv.writer(csvfile)
 
@@ -120,33 +122,33 @@ with open('cvs_readers/data/output/fanniebodies.cvs', 'w', newline='') as csvfil
 conn.autocommit = True
 cursor = conn.cursor()
 
-csv_file_name = 'cvs_readers/data/output/fanniebodies.cvs'
-sql = "COPY fanniebodies FROM STDIN DELIMITER ',' CSV HEADER"
+csv_file_name = 'cvs_readers/data/output/freddiebodies.cvs'
+sql = "COPY freddiebodies FROM STDIN DELIMITER ',' CSV HEADER"
 cursor.copy_expert(sql, open(csv_file_name, "r"))
 
 sql = '''
-create temporary table fanniestemp (cusip varchar, name varchar , indicator varchar, issuedate date, maturitydate date, originalface double precision, istbaelig istbaelig_type);
+create temporary table freddiestemp (cusip varchar, name varchar , indicator varchar, issuedate date, maturitydate date, originalface double precision, istbaelig istbaelig_type);
 '''
 cursor.execute(sql)
 
 # maybe there is an easier way to do this but I don't know it
-csv_file_name = 'cvs_readers/data/output/fannies.cvs'
-sql = "COPY fanniestemp FROM STDIN DELIMITER ',' CSV HEADER"
+csv_file_name = 'cvs_readers/data/output/freddies.cvs'
+sql = "COPY freddiestemp FROM STDIN DELIMITER ',' CSV HEADER"
 cursor.copy_expert(sql, open(csv_file_name, "r"))
 
 
 sql = '''
-INSERT INTO fannies (cusip, name, indicator, issuedate, maturitydate, originalface, istbaelig)
+INSERT INTO freddies (cusip, name, indicator, issuedate, maturitydate, originalface, istbaelig)
 SELECT cusip, name, indicator, issuedate, maturitydate, originalface, istbaelig
-FROM fanniestemp
+FROM freddiestemp
 ON CONFLICT (cusip)
 DO NOTHING;
 
-DROP TABLE fanniestemp;
+DROP TABLE freddiestemp;
 '''
 
 cursor.execute(sql)
 
 
-conn.commit()
-conn.close()
+# conn.commit()
+# conn.close()
