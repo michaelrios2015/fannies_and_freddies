@@ -11,6 +11,7 @@ conn = psycopg2.connect(
 # change this monthly
 data_path = 'cvs_readers/data/input/fd211206.txt'
 
+# fd211206.txt looks like it is YY MM DD need to redo it so it is read like that
 # date = data_path[-10:-6] + "-" + data_path[-6:-4] + "-01"
 # not sure how to get the date correctly
 date = '2012-12-01'
