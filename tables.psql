@@ -120,3 +120,49 @@ FRE|
 |
 |
 1||TAYLOR, BEAN & WHITAKER MORTGAGE CORP.|OCALA|FL|NATIONSTAR MORTGAGE LLC|COPPELL|TX|0.00|0|Y|||N||N|N||||||||||||||||||||||||||||||||||||||||||
+
+
+CREATE TABLE IF NOT EXISTS eas (
+    fdonename VARCHAR, 
+    fdonecusip VARCHAR,
+    fdtwoname VARCHAR, 
+    fdtwocusip VARCHAR,
+    exchangeable DOUBLE PRECISION,
+    exchanged DOUBLE PRECISION,
+    date DATE, 
+    -- I think we just need thes two 
+    PRIMARY KEY (fdonecusip, date)
+);
+
+\COPY eas FROM 'C:/Users/micha/fannieandfreddie/cvs_readers/data/input/ec220204.txt' delimiter '|' csv header;
+
+-- testing some eas stuff
+
+SELECT *
+FROM freddies
+INNER JOIN eas
+ON freddies.cusip = eas.fdonecusip
+WHERE freddies.originalface = eas.exchangeable
+AND exchangeable != exchanged
+AND exchanged > 0
+LIMIT 4;
+
+-- certainly looks like exchangeable is the same as the freddie one current face 
+
+SELECT COUNT(*)
+FROM eas
+WHERE exchangeable != exchanged
+AND exchanged > 0;
+
+-- so ones where not everything is exchanged exisits 
+
+
+SELECT *
+FROM eas
+WHERE exchangeable != exchanged
+AND exchanged > 0
+LIMIT 5;
+
+SELECT *
+FROM eas
+WHERE exchangeable < exchanged;

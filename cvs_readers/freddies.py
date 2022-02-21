@@ -9,12 +9,14 @@ conn = psycopg2.connect(
 )
 
 # change this monthly
-data_path = 'cvs_readers/data/input/fd211206.txt'
+data_path = 'cvs_readers/data/input/fd220204.txt'
 
 # fd211206.txt looks like it is YY MM DD need to redo it so it is read like that
-# date = data_path[-10:-6] + "-" + data_path[-6:-4] + "-01"
-# not sure how to get the date correctly
-date = '2012-12-01'
+
+date = "20" + data_path[-10:-8] + "-" + \
+    data_path[-8:-6] + "-" + data_path[-6:-4]
+
+# print(date)
 
 with open(data_path, newline='') as csvfile:
     data = csv.reader(csvfile, delimiter='|')
@@ -151,5 +153,5 @@ DROP TABLE freddiestemp;
 cursor.execute(sql)
 
 
-# conn.commit()
-# conn.close()
+conn.commit()
+conn.close()
