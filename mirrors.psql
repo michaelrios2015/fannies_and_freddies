@@ -1,0 +1,98 @@
+-- so one of the easiest things to do is just grab the the mirror (2nd freddie pool) 
+-- from the ea file and say that is now a fannie
+
+SELECT 
+    freddies.cusip,
+    freddies.name,
+    freddies.indicator,
+    freddies.issuedate,
+    freddies.maturitydate,
+    eas.exchanged AS originalface,
+    freddies.istbaelig,
+    eas.eadate
+FROM eas
+INNER JOIN freddies
+ON eas.fdtwocusip = freddies.cusip
+-- so this would need to be updated each time 
+WHERE eas.date = '2022-02-03'
+LIMIT 1;
+
+SELECT 
+    COUNT(*)
+FROM eas
+INNER JOIN freddies
+ON eas.fdtwocusip = freddies.cusip
+-- so this would need to be updated each time 
+WHERE eas.date = '2022-02-03';
+
+-- so this seems to work would I just run it and put it in another table 
+-- alsong with the regular fannies they would just have null for the date
+--  and then when need to rerun on conflict just update or i could just truncate it 
+-- and rebuild it or move the orginal face  to the changeable section??
+
+-- probably just need to most current for the moment so I will just truncate and rerun.. but
+-- might come up with somthing more sophistaced later
+
+-- now we need to do something similar with the freddiesbodies 
+
+-- this just gets what I need from some eas for a spefic date
+SELECT 
+    eas.fdtwocusip,
+    eas.exchanged,
+    eas.date
+INTO TEMP TABLE currenteas
+FROM  eas
+WHERE eas.date = '2022-02-03';
+
+
+-- gets us the freddiebodies for the month we need and also only picks are mirrors
+SELECT 
+    freddiebodies.cusip,
+    freddiebodies.coupon,
+    freddiebodies.remainingbalance,
+    freddiebodies.factor,
+    freddiebodies.gwac,
+    freddiebodies.wam,
+    freddiebodies.wala,
+    freddiebodies.date
+INTO TEMP TABLE currentfreddies
+FROM  freddiebodies
+-- this just limits it so it does not take forever in the next step
+INNER JOIN currenteas
+ON currenteas.fdtwocusip = freddiebodies.cusip
+WHERE freddiebodies.date = '2022-02-04';
+
+
+
+-- So this should work though the remaining balance is probably sligly less acuorate
+-- I could add freddies and calculate the factor on my own and then do it  also seem to be 
+-- off by pennies so does that matter should double check some more but in theory i just dump this 
+-- in a new table do the same for fannies with the eadate null and we are good to go
+
+SELECT 
+    currentfreddies.cusip,
+    currentfreddies.coupon,
+    currenteas.exchanged * currentfreddies.factor AS remainingbalance,
+    currentfreddies.factor,
+    currentfreddies.gwac,
+    currentfreddies.wam,
+    currentfreddies.wala,
+    currentfreddies.date,
+    currenteas.date AS eadate
+FROM currentfreddies
+INNER JOIN currenteas
+ON currentfreddies.cusip = currenteas.fdtwocusip
+LIMIT 10;
+
+
+SELECT *
+FROM currentfreddies
+INNER JOIN currenteas
+ON currentfreddies.cusip = currenteas.fdtwocusip
+LIMIT 10;
+
+SELECT *
+FROM currentfreddies
+INNER JOIN eas
+ON currentfreddies.cusip = eas.fdtwocusip
+LIMIT 10;
