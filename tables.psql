@@ -166,3 +166,37 @@ LIMIT 5;
 SELECT *
 FROM eas
 WHERE exchangeable < exchanged;
+
+
+-- so I was going to make a table that would hold both fannies and the mirrors
+-- I was going to have an eadate ... so I have no idea if it makes more sense to have two
+-- tables or one going to have two for now
+
+-- so these will just hold the mirror and we will need to combine it with the regular fannies 
+-- later 
+
+CREATE TABLE IF NOT EXISTS fanniemirrors (
+    cusip VARCHAR,
+    name VARCHAR,
+    indicator VARCHAR,
+    issuedate DATE,
+    maturitydate DATE,
+    originalface DOUBLE PRECISION,
+    istbaelig istbaelig_type,
+    eadate date,
+    PRIMARY KEY (cusip, eadate) 
+);
+
+
+CREATE TABLE IF NOT EXISTS fanniemirrorbodies (
+    cusip VARCHAR,
+    coupon DOUBLE PRECISION,
+    remainingbalance DOUBLE PRECISION,
+    Factor DOUBLE PRECISION,
+    gwac DOUBLE PRECISION,
+    wam INTEGER,
+    wala INTEGER,
+    date DATE,
+    eadate date, 
+    PRIMARY KEY (cusip, date, eadate)
+);

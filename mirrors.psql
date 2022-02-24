@@ -9,7 +9,7 @@ SELECT
     freddies.maturitydate,
     eas.exchanged AS originalface,
     freddies.istbaelig,
-    eas.eadate
+    eas.date
 FROM eas
 INNER JOIN freddies
 ON eas.fdtwocusip = freddies.cusip
@@ -36,6 +36,8 @@ WHERE eas.date = '2022-02-03';
 -- now we need to do something similar with the freddiesbodies 
 
 -- this just gets what I need from some eas for a spefic date
+-- I think this can just be cleaned up a little and then it should be good to go - 2/23/22
+
 SELECT 
     eas.fdtwocusip,
     eas.exchanged,
@@ -72,6 +74,7 @@ WHERE freddiebodies.date = '2022-02-04';
 SELECT 
     currentfreddies.cusip,
     currentfreddies.coupon,
+    -- ideally this would be an if statement.. and we check to see if all the of has been exchanged
     currenteas.exchanged * currentfreddies.factor AS remainingbalance,
     currentfreddies.factor,
     currentfreddies.gwac,
