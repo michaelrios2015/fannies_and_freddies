@@ -42,7 +42,7 @@ with open(data_path, newline='') as csvfile:
 headfields = ["fdonename", "fdonecusip", "fdtwoename", "fdtwocusip",
               "exchangeable", "exchanged", "date"]
 
-with open('cvs_readers/data/output/eas.cvs', 'w', newline='') as csvfile:
+with open('cvs_readers/data/output/ecs.cvs', 'w', newline='') as csvfile:
     # creating a csv writer object
     csvwriter = csv.writer(csvfile)
 
@@ -58,8 +58,8 @@ with open('cvs_readers/data/output/eas.cvs', 'w', newline='') as csvfile:
 conn.autocommit = True
 cursor = conn.cursor()
 
-csv_file_name = 'cvs_readers/data/output/eas.cvs'
-sql = "COPY eas FROM STDIN DELIMITER ',' CSV HEADER"
+csv_file_name = 'cvs_readers/data/output/ecs.cvs'
+sql = "COPY ecs FROM STDIN DELIMITER ',' CSV HEADER"
 cursor.copy_expert(sql, open(csv_file_name, "r"))
 
 # not sure if these are ncessary but I think they help

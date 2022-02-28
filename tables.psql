@@ -122,7 +122,7 @@ FRE|
 1||TAYLOR, BEAN & WHITAKER MORTGAGE CORP.|OCALA|FL|NATIONSTAR MORTGAGE LLC|COPPELL|TX|0.00|0|Y|||N||N|N||||||||||||||||||||||||||||||||||||||||||
 
 
-CREATE TABLE IF NOT EXISTS eas (
+CREATE TABLE IF NOT EXISTS ecs (
     fdonename VARCHAR, 
     fdonecusip VARCHAR,
     fdtwoname VARCHAR, 
@@ -183,8 +183,8 @@ CREATE TABLE IF NOT EXISTS fanniemirrors (
     maturitydate DATE,
     originalface DOUBLE PRECISION,
     istbaelig istbaelig_type,
-    eadate date,
-    PRIMARY KEY (cusip, eadate) 
+    ecdate date,
+    PRIMARY KEY (cusip, ecdate) 
 );
 
 
@@ -197,6 +197,6 @@ CREATE TABLE IF NOT EXISTS fanniemirrorbodies (
     wam INTEGER,
     wala INTEGER,
     date DATE,
-    eadate date, 
-    PRIMARY KEY (cusip, date, eadate)
+    ecdate date, 
+    PRIMARY KEY (cusip, date, ecdate)
 );

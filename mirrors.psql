@@ -1,21 +1,39 @@
 -- so one of the easiest things to do is just grab the the mirror (2nd freddie pool) 
--- from the ea file and say that is now a fannie
+-- from the ea file and say that is now a fannie with a date of the ea happened 
 
-SELECT 
-    freddies.cusip,
-    freddies.name,
-    freddies.indicator,
-    freddies.issuedate,
-    freddies.maturitydate,
-    eas.exchanged AS originalface,
-    freddies.istbaelig,
-    eas.date
-FROM eas
-INNER JOIN freddies
-ON eas.fdtwocusip = freddies.cusip
--- so this would need to be updated each time 
-WHERE eas.date = '2022-02-03'
-LIMIT 1;
+-- yeah works fine almost not worth putting into a stored procedure except it makes life
+-- slightly easier 
+
+create or replace PROCEDURE fanniemirrors(ecsdate DATE)
+language plpgsql
+as
+$$
+declare
+begin
+
+    INSERT INTO fanniemirrors
+    SELECT 
+        freddies.cusip,
+        freddies.name,
+        freddies.indicator,
+        freddies.issuedate,
+        freddies.maturitydate,
+        ecs.exchanged AS originalface,
+        freddies.istbaelig,
+        ecs.date
+    FROM ecs
+    INNER JOIN freddies
+    ON ecs.fdtwocusip = freddies.cusip
+    -- so this would need to be updated each time 
+    WHERE ecs.date = ecsdate;
+
+end;
+
+$$;
+
+CALL fanniemirrors('2022-02-03');
+
+
 
 SELECT 
     COUNT(*)
@@ -38,54 +56,95 @@ WHERE eas.date = '2022-02-03';
 -- this just gets what I need from some eas for a spefic date
 -- I think this can just be cleaned up a little and then it should be good to go - 2/23/22
 
-SELECT 
-    eas.fdtwocusip,
-    eas.exchanged,
-    eas.date
-INTO TEMP TABLE currenteas
-FROM  eas
-WHERE eas.date = '2022-02-03';
+-- get my ecs for a certain date
+
+create or replace PROCEDURE fanniemirrors(ecsdate DATE, fanniebodiesdate DATE)
+language plpgsql
+as
+$$
+declare
+begin
+
+    DROP TABLE IF EXISTS currentecs, currentfreddies, currentfreddieswof; 
+    -- make a drop if exists tables 
+
+    CREATE TEMP TABLE currentecs AS
+    SELECT 
+        ecs.fdtwocusip,
+        ecs.exchanged,
+        ecs.date
+    FROM  ecs
+    WHERE ecs.date = '2022-02-03';
 
 
--- gets us the freddiebodies for the month we need and also only picks are mirrors
-SELECT 
-    freddiebodies.cusip,
-    freddiebodies.coupon,
-    freddiebodies.remainingbalance,
-    freddiebodies.factor,
-    freddiebodies.gwac,
-    freddiebodies.wam,
-    freddiebodies.wala,
-    freddiebodies.date
-INTO TEMP TABLE currentfreddies
-FROM  freddiebodies
--- this just limits it so it does not take forever in the next step
-INNER JOIN currenteas
-ON currenteas.fdtwocusip = freddiebodies.cusip
-WHERE freddiebodies.date = '2022-02-04';
+    -- gets us the freddiebodies for the month we need and also only picks the mirrors
+    CREATE TEMP TABLE currentfreddies AS
+    SELECT 
+        freddiebodies.cusip,
+        freddiebodies.coupon,
+        freddiebodies.remainingbalance,
+        freddiebodies.factor,
+        freddiebodies.gwac,
+        freddiebodies.wam,
+        freddiebodies.wala,
+        freddiebodies.date
+    FROM  freddiebodies
+    -- this just limits it so it does not take forever in the next step
+    INNER JOIN currentecs
+    ON currentecs.fdtwocusip = freddiebodies.cusip
+    WHERE freddiebodies.date = '2022-02-04';
+
+
+    -- getting original face so we can compare it with exchanged
+    CREATE TEMP TABLE currentfreddieswof AS
+    SELECT
+        currentfreddies.cusip,
+        currentfreddies.coupon,
+        freddies.originalface,
+        currentfreddies.remainingbalance,
+        currentfreddies.factor,
+        currentfreddies.gwac,
+        currentfreddies.wam,
+        currentfreddies.wala,
+        currentfreddies.date
+    FROM  currentfreddies
+    -- this just limits it so it does not take forever in the next step
+    INNER JOIN freddies
+    ON freddies.cusip = currentfreddies.cusip;
 
 
 
--- So this should work though the remaining balance is probably sligly less acuorate
--- I could add freddies and calculate the factor on my own and then do it  also seem to be 
--- off by pennies so does that matter should double check some more but in theory i just dump this 
--- in a new table do the same for fannies with the eadate null and we are good to go
+    -- putting it all toget 
+    INSERT INTO fanniemirrorbodies
+    SELECT 
+        currentfreddieswof.cusip,
+        currentfreddieswof.coupon,
+        -- check to see if all original face has been exchanged if so we can just use remaining balance
+        -- if not we multiple the amount exchanged by the factor (we calculated)
+        CASE 
+            WHEN currentfreddieswof.originalface = currentecs.exchanged THEN currentfreddieswof.remainingbalance
+            ELSE currentecs.exchanged * (currentfreddieswof.remainingbalance / currentfreddieswof.originalface)
+            END AS remainingbalance,
+        currentfreddieswof.factor,
+        currentfreddieswof.gwac,
+        currentfreddieswof.wam,
+        currentfreddieswof.wala,
+        currentfreddieswof.date,
+        currentecs.date AS ecdate
+    FROM currentfreddieswof
+    INNER JOIN currentecs
+    ON currentfreddieswof.cusip = currentecs.fdtwocusip;
 
-SELECT 
-    currentfreddies.cusip,
-    currentfreddies.coupon,
-    -- ideally this would be an if statement.. and we check to see if all the of has been exchanged
-    currenteas.exchanged * currentfreddies.factor AS remainingbalance,
-    currentfreddies.factor,
-    currentfreddies.gwac,
-    currentfreddies.wam,
-    currentfreddies.wala,
-    currentfreddies.date,
-    currenteas.date AS eadate
-FROM currentfreddies
-INNER JOIN currenteas
-ON currentfreddies.cusip = currenteas.fdtwocusip
-LIMIT 10;
+    -- make a drop if exists tables
+    DROP TABLE IF EXISTS currentecs, currentfreddies, currentfreddieswof; 
+
+end;
+
+$$;
+
+fanniemirrors(ecsdate DATE, fanniebodiesdate DATE)
+
+CALL fanniemirrors('20022-02-03', '20022-02-04')
 
 
 SELECT *
