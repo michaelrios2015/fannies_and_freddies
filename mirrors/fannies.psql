@@ -31,6 +31,8 @@ end;
 
 $$;
 
+fanniemirrors(ecsdate DATE)
+
 CALL fanniemirrors('2022-02-03');
 
 
@@ -58,7 +60,7 @@ WHERE eas.date = '2022-02-03';
 
 -- get my ecs for a certain date
 
-create or replace PROCEDURE fanniemirrors(ecsdate DATE, fanniebodiesdate DATE)
+create or replace PROCEDURE fanniebodymirrors(ecsdate DATE, fanniebodiesdate DATE)
 language plpgsql
 as
 $$
@@ -142,9 +144,9 @@ end;
 
 $$;
 
-fanniemirrors(ecsdate DATE, fanniebodiesdate DATE)
+fanniebodymirrors(ecsdate DATE, fanniebodiesdate DATE)
 
-CALL fanniemirrors('20022-02-03', '20022-02-04')
+CALL fanniebodymirrors('20022-02-03', '20022-02-04')
 
 
 SELECT *
@@ -158,53 +160,3 @@ FROM currentfreddies
 INNER JOIN eas
 ON currentfreddies.cusip = eas.fdtwocusip
 LIMIT 10;
-
-------------------------------------------------------------
----- starting freddies
-
--- can i get just the freddies that have nothing to do with ec file 
-
-
-SELECT COUNT(*)
-FROM freddies
-INNER JOIN ecs
-ON freddies.cusip = ecs.fdonecusip
-OR freddies.cusip = ecs.fdtwocusip;
-
--- so 136168 need to disappear 
-
---  so this makes the fdones disappear 
-
-SELECT *
-INTO TEMP TABLE test
-FROM freddies
-LEFT JOIN ecs
-ON freddies.cusip = ecs.fdonecusip
-WHERE ecs.fdonecusip IS NULL;
--- OR freddies.cusip = ecs.fdtwocusip;
-
--- this makes the fdtwo disappear 
-
-SELECT COUNT(*)
--- INTO TEMP TABLE test
-FROM test
-LEFT JOIN ecs
-ON test.cusip = ecs.fdtwocusip
-WHERE ecs.fdtwocusip IS NULL;
-
--- those two seem to work just fine togther and should get just the freddies that have nothing
--- to do with the mirrors 
-
--- freddies that have lost some of their original face to mirrors might be easier.. 
--- yeah looks pretty straight forward combine it with freddies subtract what has been 
--- exchanged adjust orginla face
-
---  of just need to make sure these work then turn into stored procedurs but they seem fine
-
-
-
-
-SELECT COUNT(*)
-FROM freddies
-INNER JOIN ecs
-ON freddies.cusip = ecs.fdtwocusip;

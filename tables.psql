@@ -200,3 +200,23 @@ CREATE TABLE IF NOT EXISTS fanniemirrorbodies (
     ecdate date, 
     PRIMARY KEY (cusip, date, ecdate)
 );
+
+
+------------------------------------------------------------------
+--- working on the freddies part
+
+-- this will hold the freddies that are not in the ec file so are neither mirrored or mirrors
+-- i think it needs a date because it should be slowly shrinking so the date just says this had nothing to do with the fannies
+-- on that day so seems good.. i mean we could just truncate them each time and it would probably be fine
+
+CREATE TABLE IF NOT EXISTS freddieswithoutmirrors (
+    cusip VARCHAR,
+    name VARCHAR,
+    indicator VARCHAR,
+    issuedate DATE,
+    maturitydate DATE,
+    originalface DOUBLE PRECISION,
+    istbaelig istbaelig_type,
+    ecdate date,
+    PRIMARY KEY (cusip, ecdate) 
+);

@@ -1,0 +1,255 @@
+
+------------------------------------------------------------
+---- starting freddies
+
+-- can i get just the freddies that have nothing to do with ec file 
+
+
+
+SELECT COUNT(*)
+FROM freddies
+INNER JOIN ecs
+ON freddies.cusip = ecs.fdonecusip
+OR freddies.cusip = ecs.fdtwocusip;
+
+-- so 136168 need to disappear 
+
+--  so this makes the fdones disappear 
+
+--  we will need to choose a date for the ecs..
+
+
+create or replace PROCEDURE freddieswithoutmirrors(ecsdate DATE)
+language plpgsql
+as
+$$
+declare
+begin
+
+    DROP TABLE IF EXISTS currentecs, fdminusmirrorone; 
+ 
+    CREATE TEMP TABLE currentecs AS
+    SELECT *
+    FROM ecs
+    WHERE date = ecsdate;
+
+
+    CREATE TEMP TABLE fdminusmirrorone AS
+    SELECT 
+        freddies.cusip,
+        freddies.name,
+        freddies.indicator,
+        freddies.issuedate,
+        freddies.maturitydate,
+        freddies.originalface,
+        freddies.istbaelig
+    FROM freddies
+    LEFT JOIN currentecs
+    ON freddies.cusip = currentecs.fdonecusip
+    WHERE currentecs.fdonecusip IS NULL;
+ 
+    INSERT INTO freddieswithoutmirrors
+    SELECT 
+        fdminusmirrorone.cusip,
+        fdminusmirrorone.name,
+        fdminusmirrorone.indicator,
+        fdminusmirrorone.issuedate,
+        fdminusmirrorone.maturitydate,
+        fdminusmirrorone.originalface,
+        fdminusmirrorone.istbaelig,
+        ecsdate AS ecdate
+    FROM fdminusmirrorone
+    LEFT JOIN currentecs
+    ON fdminusmirrorone.cusip = currentecs.fdtwocusip
+    WHERE currentecs.fdtwocusip IS NULL;
+
+    DROP TABLE IF EXISTS currentecs, fdminusmirrorone; 
+ 
+
+end;
+
+$$;
+
+-- just use the latest ecsdate we will move onto bodies next which has 
+freddieswithoutmirrors(ecsdate DATE)
+
+CALL freddieswithoutmirrors('2022-02-03');
+
+-- need to make a permanent table in which to store them cusip 
+
+
+--  so seems to work the count is right and when i try to join it on ecs i get nothing so that is all good 
+SELECT COUNT(*)
+FROM fdminusmirrortwo
+INNER JOIN currentecs
+-- ON fdminusmirrortwo.cusip = ecs.fdonecusip
+ON fdminusmirrortwo.cusip = currentecs.fdtwocusip;
+
+
+
+
+-- those two seem to work just fine togther and should get just the freddies that have nothing
+-- to do with the mirrors 
+
+-- freddies that have lost some of their original face to mirrors might be easier.. 
+-- yeah looks pretty straight forward combine it with freddies subtract what has been 
+-- exchanged adjust orginla face
+
+--  of just need to make sure these work then turn into stored procedurs but they seem fine
+
+
+
+
+SELECT COUNT(*)
+FROM freddies
+INNER JOIN ecs
+ON freddies.cusip = ecs.fdtwocusip;
+
+
+-- ok so we can get just the freddies that have nothing to do with mirrors it's in a store procedure and it
+-- includes the date of the ec file so we know which date it's from 
+
+-- so know i need to be able to adjust teh orginal face for the freddies that have lost some to the mirrors
+
+-- going to inner
+
+-- so this is basically it we just get the freddies that have been mirrored and we subtract any of that was exchanged
+-- pretty easy.. I was thinking of making a newtable for it juts because it might make it easier to double check things later
+-- but it's really the exact same info as before so going to put them in the freddies without mirrors even those these are 
+-- freddies with adjusted OF... can always change in the furture 
+
+
+create or replace PROCEDURE freddieswithadjusted(ecsdate DATE)
+language plpgsql
+as
+$$
+declare
+begin
+
+    DROP TABLE IF EXISTS currentecs; 
+ 
+    CREATE TEMP TABLE currentecs AS
+    SELECT *
+    FROM ecs
+    WHERE date = ecsdate;
+
+    INSERT INTO freddieswithoutmirrors
+    SELECT 
+        freddies.cusip,
+        freddies.name,
+        freddies.indicator,
+        freddies.issuedate,
+        freddies.maturitydate,
+        freddies.originalface - currentecs.exchanged AS originalface,
+        freddies.istbaelig,
+        currentecs.date AS ecdate
+    FROM freddies
+    INNER JOIN currentecs
+    ON freddies.cusip = currentecs.fdonecusip;
+
+    DROP TABLE IF EXISTS currentecs; 
+ 
+
+end;
+
+$$;
+
+--  seems to work fine :) 
+freddieswithadjusted(ecsdate DATE);
+
+CALL freddieswithadjusted('2022-02-03')
+    
+SELECT *
+INTO TEMP TABLE currentecs
+FROM ecs
+WHERE date = '2022-02-03';
+
+
+SELECT 
+    freddies.cusip,
+    freddies.name,
+    freddies.indicator,
+    freddies.issuedate,
+    freddies.maturitydate,
+    freddies.originalface - currentecs.exchanged AS originalface,
+    freddies.istbaelig,
+    currentecs.date AS ecdate
+FROM freddies
+INNER JOIN currentecs
+ON freddies.cusip = currentecs.fdonecusip
+LIMIT 10;
+
+-- now on to bodies.. shoudl I combine them maybe...
+
+
+--  so it's a pretty similar procedure we have some that have nothing to do with mirrors and we have some
+-- that need to be adjusted 
+
+-- the ones that have nothing to do with the mirrors just get put in a table with the date of the ec file
+-- the ones that need to be adjusted.. get a little adjusting and then put in that same table...
+
+-- current ecs temp table
+
+-- current freddiebodies table
+
+-- elminate the first half of the mirrors, eliminate the second half and we are good
+
+-- so this seems like a fine way of geting the freddie bodies that are not mirrored or mirrors and
+-- adding a ec date so we know as of when this information is acurate..
+
+-- just used the same pattern as I had been using I am sure I could have changes it a bit but why
+
+-- need to make the table then put this in a stored procedure then add back the adjusted ones
+
+SELECT *
+INTO TEMP TABLE currentecs
+FROM ecs
+WHERE date = '2022-02-03';
+
+SELECT *
+INTO TEMP TABLE currentfreddiebodies
+FROM freddiebodies
+WHERE date = '2022-02-04';
+
+SELECT 
+    currentfreddiebodies.cusip,
+    currentfreddiebodies.coupon,
+    currentfreddiebodies.remainingbalance,
+    currentfreddiebodies.factor,
+    currentfreddiebodies.gwac,
+    currentfreddiebodies.wam,
+    currentfreddiebodies.wala,
+    currentfreddiebodies.date
+INTO TEMP TABLE fbwomirrorsone    
+FROM currentfreddiebodies
+LEFT JOIN currentecs
+ON currentfreddiebodies.cusip = currentecs.fdonecusip
+WHERE currentecs.fdonecusip IS NULL;
+
+
+SELECT 
+    fbwomirrorsone.cusip,
+    fbwomirrorsone.coupon,
+    fbwomirrorsone.remainingbalance,
+    fbwomirrorsone.factor,
+    fbwomirrorsone.gwac,
+    fbwomirrorsone.wam,
+    fbwomirrorsone.wala,
+    fbwomirrorsone.date,
+    '2022-02-03' AS ecdate
+FROM fbwomirrorsone
+LEFT JOIN currentecs
+ON fbwomirrorsone.cusip = currentecs.fdtwocusip
+WHERE currentecs.fdtwocusip IS NULL
+LIMIT 10;
+
+
+
+SELECT COUNT(*)
+FROM currentfreddiebodies
+INNER JOIN currentecs
+ON currentfreddiebodies.cusip = currentecs.fdonecusip;
+
+
+
+
