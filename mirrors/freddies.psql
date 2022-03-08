@@ -201,6 +201,77 @@ LIMIT 10;
 
 -- need to make the table then put this in a stored procedure then add back the adjusted ones
 
+
+create or replace PROCEDURE freddiesbodieswomirrors(freddiesdate DATE, ecsdate DATE)
+language plpgsql
+as
+$$
+declare
+begin
+
+
+    INTO TEMP TABLE currentecs
+
+    SELECT *
+    
+    FROM ecs
+    WHERE date = ecsdate;
+
+    INTO TEMP TABLE currentfreddiebodies
+
+    SELECT *
+    
+    FROM freddiebodies
+    WHERE date = freddiesdate;
+
+    INTO TEMP TABLE fbwomirrorsone 
+
+    SELECT 
+        currentfreddiebodies.cusip,
+        currentfreddiebodies.coupon,
+        currentfreddiebodies.remainingbalance,
+        currentfreddiebodies.factor,
+        currentfreddiebodies.gwac,
+        currentfreddiebodies.wam,
+        currentfreddiebodies.wala,
+        currentfreddiebodies.date
+       
+    FROM currentfreddiebodies
+    LEFT JOIN currentecs
+    ON currentfreddiebodies.cusip = currentecs.fdonecusip
+    WHERE currentecs.fdonecusip IS NULL;
+
+
+    SELECT 
+        fbwomirrorsone.cusip,
+        fbwomirrorsone.coupon,
+        fbwomirrorsone.remainingbalance,
+        fbwomirrorsone.factor,
+        fbwomirrorsone.gwac,
+        fbwomirrorsone.wam,
+        fbwomirrorsone.wala,
+        fbwomirrorsone.date,
+        '2022-02-03' AS ecdate
+    FROM fbwomirrorsone
+    LEFT JOIN currentecs
+    ON fbwomirrorsone.cusip = currentecs.fdtwocusip
+    WHERE currentecs.fdtwocusip IS NULL
+    LIMIT 10;
+
+
+
+SELECT COUNT(*)
+FROM currentfreddiebodies
+INNER JOIN currentecs
+ON currentfreddiebodies.cusip = currentecs.fdonecusip;
+
+
+
+
+---------------------------------------
+
+-- going to use this as the skeleton of my next step 
+
 SELECT *
 INTO TEMP TABLE currentecs
 FROM ecs
@@ -242,14 +313,3 @@ LEFT JOIN currentecs
 ON fbwomirrorsone.cusip = currentecs.fdtwocusip
 WHERE currentecs.fdtwocusip IS NULL
 LIMIT 10;
-
-
-
-SELECT COUNT(*)
-FROM currentfreddiebodies
-INNER JOIN currentecs
-ON currentfreddiebodies.cusip = currentecs.fdonecusip;
-
-
-
-

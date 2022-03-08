@@ -220,3 +220,16 @@ CREATE TABLE IF NOT EXISTS freddieswithoutmirrors (
     ecdate date,
     PRIMARY KEY (cusip, ecdate) 
 );
+
+CREATE TABLE IF NOT EXISTS freddiebodieswomirrors (
+    cusip VARCHAR,
+    coupon DOUBLE PRECISION,
+    remainingbalance DOUBLE PRECISION,
+    Factor DOUBLE PRECISION,
+    gwac DOUBLE PRECISION,
+    wam INTEGER,
+    wala INTEGER,
+    date DATE,
+    ecdate date, 
+    PRIMARY KEY (cusip, date, ecdate)
+);
