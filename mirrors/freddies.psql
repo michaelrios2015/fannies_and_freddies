@@ -276,7 +276,7 @@ WHERE freddiebodies.date = '2022-02-04';
 SELECT COUNT(*)
 FROM freddiebodieswomirrors
 INNER JOIN ecs
-ON freddiebodieswomirrors.cusip = ecs.fdtwocusip;
+ON freddiebodieswomirrors.cusip = ecs.fdonecusip;
 
 
 
@@ -287,44 +287,64 @@ ON freddiebodieswomirrors.cusip = ecs.fdtwocusip;
 
 -- going to use this as the skeleton of my next step 
 
-SELECT *
-INTO TEMP TABLE currentecs
-FROM ecs
-WHERE date = '2022-02-03';
-
-SELECT *
-INTO TEMP TABLE currentfreddiebodies
-FROM freddiebodies
-WHERE date = '2022-02-04';
-
-SELECT 
-    currentfreddiebodies.cusip,
-    currentfreddiebodies.coupon,
-    currentfreddiebodies.remainingbalance,
-    currentfreddiebodies.factor,
-    currentfreddiebodies.gwac,
-    currentfreddiebodies.wam,
-    currentfreddiebodies.wala,
-    currentfreddiebodies.date
-INTO TEMP TABLE fbwomirrorsone    
-FROM currentfreddiebodies
-LEFT JOIN currentecs
-ON currentfreddiebodies.cusip = currentecs.fdonecusip
-WHERE currentecs.fdonecusip IS NULL;
+-- so here I need to add back the freedie bodies but adjust their current face
+-- seems to work need to turn it into a stored procedure 
 
 
-SELECT 
-    fbwomirrorsone.cusip,
-    fbwomirrorsone.coupon,
-    fbwomirrorsone.remainingbalance,
-    fbwomirrorsone.factor,
-    fbwomirrorsone.gwac,
-    fbwomirrorsone.wam,
-    fbwomirrorsone.wala,
-    fbwomirrorsone.date,
-    '2022-02-03' AS ecdate
-FROM fbwomirrorsone
-LEFT JOIN currentecs
-ON fbwomirrorsone.cusip = currentecs.fdtwocusip
-WHERE currentecs.fdtwocusip IS NULL
-LIMIT 10;
+create or replace PROCEDURE freddiesbodieswomirrorsadjustedcurrface(freddiesdate DATE, ecsdate DATE)
+language plpgsql
+as
+$$
+declare
+begin
+
+    DROP TABLE IF EXISTS currentecs, currentfreddiebodies;
+
+    CREATE TEMP TABLE currentecs AS
+    SELECT *
+    FROM ecs
+    WHERE date = ecsdate;
+
+    CREATE TEMP TABLE currentfreddiebodies AS
+    SELECT 
+        freddiebodies.cusip,
+        freddiebodies.coupon,
+        freddies.originalface,
+        freddiebodies.remainingbalance,
+        freddiebodies.remainingbalance / freddies.originalface as factor,
+        freddiebodies.gwac,
+        freddiebodies.wam,
+        freddiebodies.wala,
+        freddiebodies.date
+    FROM freddies
+    INNER JOIN freddiebodies
+    ON freddies.cusip = freddiebodies.cusip
+    WHERE freddiebodies.date = freddiesdate;
+  
+    INSERT INTO freddiebodieswomirrors
+    SELECT 
+        currentfreddiebodies.cusip,
+        currentfreddiebodies.coupon,
+        CASE 
+            WHEN currentecs.exchanged = 0 THEN currentfreddiebodies.remainingbalance
+            ELSE currentfreddiebodies.factor * (currentfreddiebodies.originalface - currentecs.exchanged)
+            END AS remainingbalance,
+        currentfreddiebodies.factor,
+        currentfreddiebodies.gwac,
+        currentfreddiebodies.wam,
+        currentfreddiebodies.wala,
+        currentfreddiebodies.date,
+        currentecs.date AS ecsdate
+    FROM currentfreddiebodies
+    INNER JOIN currentecs
+    ON currentfreddiebodies.cusip = currentecs.fdonecusip;
+
+    DROP TABLE IF EXISTS currentecs, currentfreddiebodies;
+
+end;
+
+$$;
+
+freddiesbodieswomirrorsadjustedcurrface(freddiesdate DATE, ecsdate DATE)
+
+CALL freddiesbodieswomirrorsadjustedcurrface('2022-02-04', '2022-02-03');

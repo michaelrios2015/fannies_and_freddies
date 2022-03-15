@@ -60,7 +60,9 @@ WHERE eas.date = '2022-02-03';
 
 -- get my ecs for a certain date
 
-create or replace PROCEDURE fanniebodymirrors(ecsdate DATE, fanniebodiesdate DATE)
+-- 
+
+create or replace PROCEDURE fanniebodymirrors(ecsdate DATE, freddiebodiesdate DATE)
 language plpgsql
 as
 $$
@@ -76,7 +78,7 @@ begin
         ecs.exchanged,
         ecs.date
     FROM  ecs
-    WHERE ecs.date = '2022-02-03';
+    WHERE ecs.date = ecsdate;
 
 
     -- gets us the freddiebodies for the month we need and also only picks the mirrors
@@ -94,7 +96,7 @@ begin
     -- this just limits it so it does not take forever in the next step
     INNER JOIN currentecs
     ON currentecs.fdtwocusip = freddiebodies.cusip
-    WHERE freddiebodies.date = '2022-02-04';
+    WHERE freddiebodies.date = freddiebodiesdate;
 
 
     -- getting original face so we can compare it with exchanged
@@ -144,7 +146,7 @@ end;
 
 $$;
 
-fanniebodymirrors(ecsdate DATE, fanniebodiesdate DATE)
+fanniebodymirrors(ecsdate DATE, freddiebodiesdate DATE)
 
 CALL fanniebodymirrors('20022-02-03', '20022-02-04')
 

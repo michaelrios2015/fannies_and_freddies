@@ -233,3 +233,170 @@ CREATE TABLE IF NOT EXISTS freddiebodieswomirrors (
     ecdate date, 
     PRIMARY KEY (cusip, date, ecdate)
 );
+
+-----------------------------------------------------------------
+
+-- a temp table that I can put the super, giants, etc
+
+CREATE TEMP TABLE platinumreader (
+    platcusip VARCHAR,
+    prefix VARCHAR,
+    securityid VARCHAR,
+    poolcusip VARCHAR,
+    interestrate DOUBLE PRECISION,
+    issuer VARCHAR,
+    issuedate DATE,
+    maturitydate INTEGER,
+    ciisu DOUBLE PRECISION,
+    ofinplat DOUBLE PRECISION, 
+    PRIMARY KEY (platcusip, poolcusip)
+
+)
+
+-- reading them in to see if primary key works
+
+\copy platinumreader FROM 'C:\Users\micha\Downloads\collateral_items_giant_FHR.csv' DELIMITER ',' CSV HEADER
+
+\copy platinumreader FROM 'C:\Users\micha\fannieandfreddie\cvs_readers\data\input\collateral_items_mega_FNM.csv' DELIMITER ',' CSV HEADER
+
+\copy platinumreader FROM 'C:\Users\micha\fannieandfreddie\cvs_readers\data\input\collateral_items_super_FHR.csv' DELIMITER ',' CSV HEADER
+
+\copy platinumreader FROM 'C:\Users\micha\fannieandfreddie\cvs_readers\data\input\collateral_items_super_FNM.csv' DELIMITER ',' CSV HEADER
+
+
+----so this did not completely work because across the four files the platcusip, and poolcusip are not unique (close I think)
+
+-- but we have some in there so let's see what we need to do to sum ofinplat by poolcusip
+
+SELECT COUNT(*)
+FROM platinumreader;
+
+ 1490859
+
+ 
+SELECT COUNT(DISTINCT poolcusip)
+FROM platinumreader;
+
+ 578588
+
+-- so this works fine and mostly I just don't like having a table without a good primary key
+-- the poolcusip and a date will be a primary key... 
+
+-- I will probably just need to be careful about making sure I never rerun it by accident....
+-- maybe I can have a column that says how many times I have run it... and it should never be more than 4
+
+SELECT 
+    poolcusip,
+    SUM(ofinplat)
+FROM platinumreader
+GROUP BY poolcusip
+LIMIT 10;
+
+
+CREATE TEMP TABLE sumoforigface (
+    poolcusip VARCHAR,
+    ofinplat DOUBLE PRECISION, 
+)
+
+
+SELECT 
+    poolcusip,
+    SUM(ofinplat) AS ofinplat
+INTO TEMP TABLE sumoforigface
+FROM platinumreader
+GROUP BY poolcusip;
+
+INSERT INTO sumoforigface
+SELECT 
+    poolcusip,
+    SUM(ofinplat) AS ofinplat
+FROM platinumreader
+GROUP BY poolcusip;
+
+
+SELECT
+    poolcusip,
+    COUNT(*)
+FROM sumoforigface
+GROUP BY poolcusip
+HAVING COUNT(*) > 3
+LIMIT 10;
+
+--  so I guess this guy was in all four files 
+
+ poolcusip | ofinplat
+-----------+----------
+ 3132A9SK4 |  5407000
+ 3132A9SK4 |  4942000
+ 3132A9SK4 |  5407000
+ 3132A9SK4 |  4942000
+
+ ---------------------
+--  trying the same thing with update on conflict
+
+TRUNCATE platinumreader;
+
+CREATE TEMP TABLE sumoforigfacetwo (
+    poolcusip VARCHAR,
+    ofinplat DOUBLE PRECISION,
+    PRIMARY KEY (poolcusip) 
+)
+
+-- I could not get this to work... so trying a different approach 3/12/22
+INSERT INTO sumoforigfacetwo
+SELECT 
+    poolcusip,
+    SUM(ofinplat) AS ofinplat
+FROM platinumreader
+GROUP BY poolcusip
+ON CONFLICT (poolcusip)
+DO 
+    UPDATE SET ofinplat = sumoforigfacetwo.ofinplat + platinumreader.ofinplat
+    FROM platinumreader
+    WHERE sumoforigfacetwo.poolcusip = platinumreader.poolcusip;
+
+------------------------------
+
+-- just calling this platinums for the monent because I got so used to thinking
+-- about the big ones as platinums
+
+-- will have a date... but going to leave that for a later date
+
+CREATE TABLE platinums (
+    platcusip VARCHAR,
+    poolcusip VARCHAR,
+    ofinplat DOUBLE PRECISION, 
+    filename VARCHAR,
+    PRIMARY KEY (platcusip, poolcusip, filename)
+);
+
+
+-- seems to work
+
+\copy platinums FROM 'C:\Users\micha\fannieandfreddie\cvs_readers\data\output\giant_FHR' DELIMITER ',' CSV HEADER
+
+\copy platinums FROM 'C:\Users\micha\fannieandfreddie\cvs_readers\data\output\mega_FNM' DELIMITER ',' CSV HEADER
+
+\copy platinums FROM 'C:\Users\micha\fannieandfreddie\cvs_readers\data\output\super_FHR' DELIMITER ',' CSV HEADER
+
+\copy platinums FROM 'C:\Users\micha\fannieandfreddie\cvs_readers\data\output\super_FNM' DELIMITER ',' CSV HEADER
+
+-- got the same thing as last time so that's good :)
+SELECT 
+    poolcusip,
+    filename,
+    SUM(ofinplat) AS ofinplat
+FROM platinums
+WHERE poolcusip = '3132A9SK4'
+GROUP BY poolcusip, filename;
+
+ poolcusip | filename  | ofinplat
+-----------+-----------+----------
+ 3132A9SK4 | giant_FHR |  5407000
+ 3132A9SK4 | mega_FNM  |  4942000
+ 3132A9SK4 | super_FHR |  5407000
+ 3132A9SK4 | super_FNM |  4942000
+
+ SELECT 
+    COUNT(DISTINCT poolcusip)
+FROM platinums;

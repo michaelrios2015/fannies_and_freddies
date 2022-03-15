@@ -1,0 +1,148 @@
+-- so we have the tables platinums which has the amount of pool original face in platinums
+
+-- so this is just a temp table so I can see how much original face each pool lost 
+
+SELECT 
+    poolcusip,
+    SUM(ofinplat) AS ofinplat
+INTO TEMP TABLE poolofinplats
+FROM platinums
+GROUP BY poolcusip;
+
+--  so for the regular fannies it's pretty easy 
+
+--  so the easiest thing to do is just use fanniebodies, multiple the ofinplat by the factor
+--  subtract that from the remaining balanvce call it a day
+
+-- that would look like
+
+SELECT * 
+INTO TEMP TABLE currfanniebodies
+FROM fanniebodies
+WHERE date = '2022-02-01';
+
+
+SELECT 
+    *,
+    poolofinplats.ofinplat * currfanniebodies.factor AS currfaceinplat,
+    currfanniebodies.remainingbalance - (poolofinplats.ofinplat * currfanniebodies.factor) AS float
+FROM currfanniebodies
+INNER JOIN poolofinplats
+ON currfanniebodies.cusip = poolofinplats.poolcusip
+LIMIT 10;
+
+
+-- so these results are not good... i suppose they could just be rounding errors
+   cusip   | coupon | remainingbalance |   factor   | gwac  | wam | wala |    date    | poolcusip |  ofinplat  |   currfaceinplat   |        float
+-----------+--------+------------------+------------+-------+-----+------+------------+-----------+------------+--------------------+----------------------
+ 3136054W4 |      5 |          7971.97 |  0.0002397 |  5.75 |  30 |  450 | 2022-02-01 | 3136054W4 |   33257712 |       7971.8735664 |  0.09643360000063694
+ 31361ELS4 |  3.579 |         33177.19 |  0.0003023 | 4.329 |  51 |  429 | 2022-02-01 | 31361ELS4 |   35978057 | 10876.166631099999 |        22301.0233689
+ 313612MX8 |    3.5 |         20624.79 | 0.00160771 |  4.25 |  51 |  429 | 2022-02-01 | 313612MX8 |   12828712 |     20624.84856952 | -0.05856951999885496
+ 313614MK2 |   3.75 |         16464.05 | 0.00636309 |     5 |  46 |  434 | 2022-02-01 | 313614MK2 |    2587432 |     16464.06268488 | -0.01268487999914214
+ 313615F92 |      9 |          1190.92 |  1.293e-05 | 9.375 |   2 |  358 | 2022-02-01 | 313615F92 |  125315958 |      1620.33533694 |  -429.41533693999986
+ 313615HB5 |      8 |         14694.64 |  1.975e-05 | 8.543 |   6 |  353 | 2022-02-01 | 313615HB5 |  413898384 |        8174.493084 |          6520.146916
+ 313615HM1 |      7 |          15894.7 |  6.334e-05 | 7.512 |   8 |  351 | 2022-02-01 | 313615HM1 |  284647974 |     18029.60267316 |   -2134.902673159999
+ 313615LD6 |      7 |          2299.29 |  2.411e-05 |  7.75 |   8 |  350 | 2022-02-01 | 313615LD6 |   53222872 | 1283.2034439200002 |   1016.0865560799998
+ 313615TW6 |    6.5 |        939341.85 | 0.00069672 | 7.001 |  21 |  337 | 2022-02-01 | 313615TW6 | 1168722250 |       814272.16602 |   125069.68397999997
+ 31362RDJ3 |   4.25 |          1469.57 | 0.00023584 |  5.25 |  46 |  434 | 2022-02-01 | 31362RDJ3 |    6231151 |      1469.55465184 | 0.015348160000030475
+
+
+----------- trying the same thing but with calculating the factor and possibly subtartng from the real orignal face 
+
+SELECT
+    fannies.cusip,
+    fannies.name,
+    -- fannies.indicator,
+    -- fannies.issuedate,
+    -- fannies.maturitydate,
+    fannies.originalface,
+    -- fannies.istbaelig,
+    -- fanniebodies.coupon,
+    fanniebodies.remainingbalance,
+    fanniebodies.factor,
+    fanniebodies.date
+INTO TEMP TABLE currfannies
+FROM fannies
+INNER JOIN fanniebodies 
+ON fannies.cusip = fanniebodies.cusip
+WHERE date = '2022-02-01';
+
+
+SELECT 
+    *,
+    -- currfannies.cusip,
+    -- currfannies.name,
+    -- cur
+    currfannies.originalface - poolofinplats.ofinplat AS adjustedof
+    -- poolofinplats.ofinplat * currfanniebodies.factor AS currfaceinplat,
+    -- currfanniebodies.remainingbalance - (poolofinplats.ofinplat * currfanniebodies.factor) AS float
+FROM currfannies
+INNER JOIN poolofinplats
+ON currfannies.cusip = poolofinplats.poolcusip
+LIMIT 10;
+
+-- OK so just checking of original face 
+
+   cusip   |  name  | originalface | remainingbalance |   factor   |    date    | poolcusip |  ofinplat  | adjustedof
+-----------+--------+--------------+------------------+------------+------------+-----------+------------+------------
+ 3136054W4 | 021537 |     33257712 |          7971.97 |  0.0002397 | 2022-02-01 | 3136054W4 |   33257712 |          0
+ 31361ELS4 | 029137 |    109747514 |         33177.19 |  0.0003023 | 2022-02-01 | 31361ELS4 |   35978057 |   73769457
+ 313612MX8 | 048074 |     12828712 |         20624.79 | 0.00160771 | 2022-02-01 | 313612MX8 |   12828712 |          0
+ 313614MK2 | 049862 |      2587432 |         16464.05 | 0.00636309 | 2022-02-01 | 313614MK2 |    2587432 |          0
+ 313615F92 | 050592 |     92127566 |          1190.92 |  1.293e-05 | 2022-02-01 | 313615F92 |  125315958 |  -33188392
+ 313615HB5 | 050626 |    744086239 |         14694.64 |  1.975e-05 | 2022-02-01 | 313615HB5 |  413898384 |  330187855
+ 313615HM1 | 050636 |    250954010 |          15894.7 |  6.334e-05 | 2022-02-01 | 313615HM1 |  284647974 |  -33693964
+ 313615LD6 | 050724 |     95350297 |          2299.29 |  2.411e-05 | 2022-02-01 | 313615LD6 |   53222872 |   42127425
+ 313615TW6 | 050965 |   1348233371 |        939341.85 | 0.00069672 | 2022-02-01 | 313615TW6 | 1168722250 |  179511121
+ 31362RDJ3 | 068505 |      6231151 |          1469.57 | 0.00023584 | 2022-02-01 | 31362RDJ3 |    6231151 |
+
+--  mostly good
+
+-- these two are not good
+ 313615F92 | 050592 |     92127566 |          1190.92 |  1.293e-05 | 2022-02-01 | 313615F92 |  125315958 |  -33188392
+ 313615HM1 | 050636 |    250954010 |          15894.7 |  6.334e-05 | 2022-02-01 | 313615HM1 |  284647974 |  -33693964
+
+--  so hopefully we just have some duplicate rows some where..
+
+SELECT *
+INTO TEMP TABLE checkone
+FROM platinums
+WHERE poolcusip = '313615F92'
+AND filename = 'super_FNM';
+
+SELECT *
+INTO TEMP TABLE checktwo
+FROM platinums
+WHERE poolcusip = '313615F92'
+AND filename = 'mega_FNM';
+
+SELECT *
+FROM checkone
+INNER JOIN checktwo
+ON checkone.platcusip = checktwo.platcusip
+AND checkone.poolcusip = checktwo.poolcusip
+AND checkone.ofinplat = checktwo.ofinplat
+
+ platcusip | poolcusip | ofinplat | filename  | platcusip | poolcusip | ofinplat | filename
+-----------+-----------+----------+-----------+-----------+-----------+----------+----------
+ 31365C7J0 | 313615F92 | 14750570 | super_FNM | 31365C7J0 | 313615F92 | 14750570 | mega_FNM
+ 31365DJV8 | 313615F92 |  1207498 | super_FNM | 31365DJV8 | 313615F92 |  1207498 | mega_FNM
+ 31365DRK3 | 313615F92 |   624580 | super_FNM | 31365DRK3 | 313615F92 |   624580 | mega_FNM
+ 31365DWT8 | 313615F92 |  2565875 | super_FNM | 31365DWT8 | 313615F92 |  2565875 | mega_FNM
+ 31368H5N9 | 313615F92 |  1348348 | super_FNM | 31368H5N9 | 313615F92 |  1348348 | mega_FNM
+ 31368H6K4 | 313615F92 |  2873022 | super_FNM | 31368H6K4 | 313615F92 |  2873022 | mega_FNM
+ 31368HF99 | 313615F92 |  1583126 | super_FNM | 31368HF99 | 313615F92 |  1583126 | mega_FNM
+ 31368HHA4 | 313615F92 |   808810 | super_FNM | 31368HHA4 | 313615F92 |   808810 | mega_FNM
+ 31368HXT5 | 313615F92 |  4748196 | super_FNM | 31368HXT5 | 313615F92 |  4748196 | mega_FNM
+ 31368JAJ8 | 313615F92 |    25639 | super_FNM | 31368JAJ8 | 313615F92 |    25639 | mega_FNM
+ 31373TSW1 | 313615F92 |   975001 | super_FNM | 31373TSW1 | 313615F92 |   975001 | mega_FNM
+ 31373TVX5 | 313615F92 |    98524 | super_FNM | 31373TVX5 | 313615F92 |    98524 | mega_FNM
+ 31373USJ7 | 313615F92 |  8680388 | super_FNM | 31373USJ7 | 313615F92 |  8680388 | mega_FNM
+ 31374GH26 | 313615F92 |   629914 | super_FNM | 31374GH26 | 313615F92 |   629914 | mega_FNM
+ 31374GNA1 | 313615F92 |    88890 | super_FNM | 31374GNA1 | 313615F92 |    88890 | mega_FNM
+ 31385HSG8 | 313615F92 | 10014460 | super_FNM | 31385HSG8 | 313615F92 | 10014460 | mega_FNM
+ 3138EMHN4 | 313615F92 |  3634769 | super_FNM | 3138EMHN4 | 313615F92 |  3634769 | mega_FNM
+ 31410FYC3 | 313615F92 |  8000369 | super_FNM | 31410FYC3 | 313615F92 |  8000369 | mega_FNM
+
+--   so we seem to have duplicate rows in the different files .. hopefully this is just a mistake and the platcusip, poolcusip is supposed to be our primary key
+-- then i can just ignore conflicts and we wont need a filename column... but at the moment we are just at the waiting game
