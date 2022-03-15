@@ -360,26 +360,87 @@ DO
 -- just calling this platinums for the monent because I got so used to thinking
 -- about the big ones as platinums
 
--- will have a date... but going to leave that for a later date
+-- so it turns out we are only supposed to have one pool plat cusip combo so the file name is not need
+-- but the date could be useful 
 
 CREATE TABLE platinums (
     platcusip VARCHAR,
     poolcusip VARCHAR,
     ofinplat DOUBLE PRECISION, 
-    filename VARCHAR,
-    PRIMARY KEY (platcusip, poolcusip, filename)
+    date DATE,
+    PRIMARY KEY (platcusip, poolcusip)
+);
+
+
+
+CREATE TEMP TABLE  platinumsreader (
+    platcusip VARCHAR,
+    poolcusip VARCHAR,
+    ofinplat DOUBLE PRECISION, 
+    date DATE
 );
 
 
 -- seems to work
 
-\copy platinums FROM 'C:\Users\micha\fannieandfreddie\cvs_readers\data\output\giant_FHR' DELIMITER ',' CSV HEADER
+\copy platinumsreader FROM 'C:\Users\micha\fannieandfreddie\cvs_readers\data\output\giant_FHR' DELIMITER ',' CSV HEADER
 
-\copy platinums FROM 'C:\Users\micha\fannieandfreddie\cvs_readers\data\output\mega_FNM' DELIMITER ',' CSV HEADER
+-- INSERT INTO platinums
+-- SELECT * 
+-- FROM platinumsreader
+-- ON CONFLICT 
+-- DO NOTHING;
 
-\copy platinums FROM 'C:\Users\micha\fannieandfreddie\cvs_readers\data\output\super_FHR' DELIMITER ',' CSV HEADER
+-- TRUNCATE platinumsreader;
 
-\copy platinums FROM 'C:\Users\micha\fannieandfreddie\cvs_readers\data\output\super_FNM' DELIMITER ',' CSV HEADER
+\copy platinumsreader FROM 'C:\Users\micha\fannieandfreddie\cvs_readers\data\output\mega_FNM' DELIMITER ',' CSV HEADER
+
+-- INSERT INTO platinums
+-- SELECT * 
+-- FROM platinumsreader
+-- ON CONFLICT 
+-- DO NOTHING;
+
+-- TRUNCATE platinumsreader;
+
+\copy platinumsreader FROM 'C:\Users\micha\fannieandfreddie\cvs_readers\data\output\super_FHR' DELIMITER ',' CSV HEADER
+
+
+-- INSERT INTO platinums
+-- SELECT * 
+-- FROM platinumsreader
+-- ON CONFLICT (platcusip, poolcusip)
+-- DO NOTHING;
+
+-- TRUNCATE platinumsreader;
+
+-- INSERT 0 166
+
+\copy platinumsreader FROM 'C:\Users\micha\fannieandfreddie\cvs_readers\data\output\super_FNM' DELIMITER ',' CSV HEADER
+
+INSERT INTO platinums
+SELECT * 
+FROM platinumsreader
+ON CONFLICT
+DO NOTHING;
+
+TRUNCATE platinumsreader;
+
+INSERT 0 0
+
+SELECT COUNT(*)
+FROM(
+    SELECT distinct platcusip, poolcusip
+    FROM platinumsreader
+) AS foo;
+
+
+-- this is the straight count  2712702
+
+
+-- this is distinct 
+--  1571434 --- 
+
 
 -- got the same thing as last time so that's good :)
 SELECT 

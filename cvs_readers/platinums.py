@@ -14,6 +14,11 @@ data_path = ['cvs_readers/data/input/collateral_items_giant_FHR.csv',
              'cvs_readers\data\input\collateral_items_super_FHR.csv',
              'cvs_readers\data\input\collateral_items_super_FNM.csv']
 
+date = '2021-06-01'
+
+####################################################################
+# changes stop
+####################################
 
 for file in data_path:
 
@@ -40,14 +45,14 @@ for file in data_path:
 
                 # print(date)
 
-                body.append([platcusip, poolcusip, ofinplat, filename])
+                body.append([platcusip, poolcusip, ofinplat, date])
 
             except Exception as e:
                 # we seem to get a couple of very new supers (like platinums) each month
                 print(row)
                 print(e)
 
-    headfields = ["platcusip", "poolcusip", "ofinplat", "filename"]
+    headfields = ["platcusip", "poolcusip", "ofinplat", "date"]
 
     with open('cvs_readers/data/output/' + filename, 'w', newline='') as csvfile:
         # creating a csv writer object
@@ -60,31 +65,31 @@ for file in data_path:
         csvwriter.writerows(body)
 
 
-# connecting to database
-# what is autocommit
-conn.autocommit = True
-cursor = conn.cursor()
+# # connecting to database
+# # what is autocommit
+# conn.autocommit = True
+# cursor = conn.cursor()
 
-csv_file_name = 'cvs_readers/data/output/giant_FHR'
-sql = "COPY platinums FROM STDIN DELIMITER ',' CSV HEADER"
-cursor.copy_expert(sql, open(csv_file_name, "r"))
-
-
-csv_file_name = 'cvs_readers/data/output/mega_FNM'
-sql = "COPY platinums FROM STDIN DELIMITER ',' CSV HEADER"
-cursor.copy_expert(sql, open(csv_file_name, "r"))
+# csv_file_name = 'cvs_readers/data/output/giant_FHR'
+# sql = "COPY platinums FROM STDIN DELIMITER ',' CSV HEADER"
+# cursor.copy_expert(sql, open(csv_file_name, "r"))
 
 
-csv_file_name = 'cvs_readers/data/output/super_FHR'
-sql = "COPY platinums FROM STDIN DELIMITER ',' CSV HEADER"
-cursor.copy_expert(sql, open(csv_file_name, "r"))
+# csv_file_name = 'cvs_readers/data/output/mega_FNM'
+# sql = "COPY platinums FROM STDIN DELIMITER ',' CSV HEADER"
+# cursor.copy_expert(sql, open(csv_file_name, "r"))
 
 
-csv_file_name = 'cvs_readers/data/output/super_FNM'
-sql = "COPY platinums FROM STDIN DELIMITER ',' CSV HEADER"
-cursor.copy_expert(sql, open(csv_file_name, "r"))
+# csv_file_name = 'cvs_readers/data/output/super_FHR'
+# sql = "COPY platinums FROM STDIN DELIMITER ',' CSV HEADER"
+# cursor.copy_expert(sql, open(csv_file_name, "r"))
 
 
-# not sure if these are ncessary but I think they help
-conn.commit()
-conn.close()
+# csv_file_name = 'cvs_readers/data/output/super_FNM'
+# sql = "COPY platinums FROM STDIN DELIMITER ',' CSV HEADER"
+# cursor.copy_expert(sql, open(csv_file_name, "r"))
+
+
+# # not sure if these are ncessary but I think they help
+# conn.commit()
+# conn.close()
