@@ -385,36 +385,9 @@ CREATE TEMP TABLE  platinumsreader (
 
 \copy platinumsreader FROM 'C:\Users\micha\fannieandfreddie\cvs_readers\data\output\giant_FHR' DELIMITER ',' CSV HEADER
 
--- INSERT INTO platinums
--- SELECT * 
--- FROM platinumsreader
--- ON CONFLICT 
--- DO NOTHING;
-
--- TRUNCATE platinumsreader;
-
 \copy platinumsreader FROM 'C:\Users\micha\fannieandfreddie\cvs_readers\data\output\mega_FNM' DELIMITER ',' CSV HEADER
 
--- INSERT INTO platinums
--- SELECT * 
--- FROM platinumsreader
--- ON CONFLICT 
--- DO NOTHING;
-
--- TRUNCATE platinumsreader;
-
 \copy platinumsreader FROM 'C:\Users\micha\fannieandfreddie\cvs_readers\data\output\super_FHR' DELIMITER ',' CSV HEADER
-
-
--- INSERT INTO platinums
--- SELECT * 
--- FROM platinumsreader
--- ON CONFLICT (platcusip, poolcusip)
--- DO NOTHING;
-
--- TRUNCATE platinumsreader;
-
--- INSERT 0 166
 
 \copy platinumsreader FROM 'C:\Users\micha\fannieandfreddie\cvs_readers\data\output\super_FNM' DELIMITER ',' CSV HEADER
 

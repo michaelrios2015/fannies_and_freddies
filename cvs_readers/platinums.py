@@ -65,31 +65,55 @@ for file in data_path:
         csvwriter.writerows(body)
 
 
-# # connecting to database
-# # what is autocommit
-# conn.autocommit = True
-# cursor = conn.cursor()
-
-# csv_file_name = 'cvs_readers/data/output/giant_FHR'
-# sql = "COPY platinums FROM STDIN DELIMITER ',' CSV HEADER"
-# cursor.copy_expert(sql, open(csv_file_name, "r"))
+# connecting to database
+# what is autocommit
+conn.autocommit = True
+cursor = conn.cursor()
 
 
-# csv_file_name = 'cvs_readers/data/output/mega_FNM'
-# sql = "COPY platinums FROM STDIN DELIMITER ',' CSV HEADER"
-# cursor.copy_expert(sql, open(csv_file_name, "r"))
+sql = '''
+CREATE TEMP TABLE  platinumsreader (
+    platcusip VARCHAR,
+    poolcusip VARCHAR,
+    ofinplat DOUBLE PRECISION, 
+    date DATE
+);
+'''
+
+cursor.execute(sql)
 
 
-# csv_file_name = 'cvs_readers/data/output/super_FHR'
-# sql = "COPY platinums FROM STDIN DELIMITER ',' CSV HEADER"
-# cursor.copy_expert(sql, open(csv_file_name, "r"))
+csv_file_name = 'cvs_readers/data/output/giant_FHR'
+sql = "COPY platinumsreader FROM STDIN DELIMITER ',' CSV HEADER"
+cursor.copy_expert(sql, open(csv_file_name, "r"))
 
 
-# csv_file_name = 'cvs_readers/data/output/super_FNM'
-# sql = "COPY platinums FROM STDIN DELIMITER ',' CSV HEADER"
-# cursor.copy_expert(sql, open(csv_file_name, "r"))
+csv_file_name = 'cvs_readers/data/output/mega_FNM'
+sql = "COPY platinumsreader FROM STDIN DELIMITER ',' CSV HEADER"
+cursor.copy_expert(sql, open(csv_file_name, "r"))
 
 
-# # not sure if these are ncessary but I think they help
-# conn.commit()
-# conn.close()
+csv_file_name = 'cvs_readers/data/output/super_FHR'
+sql = "COPY platinumsreader FROM STDIN DELIMITER ',' CSV HEADER"
+cursor.copy_expert(sql, open(csv_file_name, "r"))
+
+
+csv_file_name = 'cvs_readers/data/output/super_FNM'
+sql = "COPY platinumsreader FROM STDIN DELIMITER ',' CSV HEADER"
+cursor.copy_expert(sql, open(csv_file_name, "r"))
+
+
+sql = '''
+INSERT INTO platinums
+SELECT * 
+FROM platinumsreader
+ON CONFLICT
+DO NOTHING;
+'''
+
+cursor.execute(sql)
+
+
+# not sure if these are ncessary but I think they help
+conn.commit()
+conn.close()
