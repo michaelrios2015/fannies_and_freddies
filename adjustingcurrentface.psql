@@ -2,49 +2,110 @@
 
 -- so this is just a temp table so I can see how much original face each pool lost 
 
-SELECT 
-    poolcusip,
-    SUM(ofinplat) AS ofinplat
-INTO TEMP TABLE poolofinplats
-FROM platinums
-GROUP BY poolcusip;
+create or replace PROCEDURE freddiesfloat( fanniebodiesdate DATE )
+language plpgsql
+as
+$$
+declare
+begin
 
---  so for the regular fannies it's pretty easy 
+    DROP TABLE IF EXISTS poolofinplats, currentfreddiebodies;
 
---  so the easiest thing to do is just use fanniebodies, multiple the ofinplat by the factor
---  subtract that from the remaining balanvce call it a day
-
--- that would look like
-
-SELECT * 
-INTO TEMP TABLE currfanniebodies
-FROM fanniebodies
-WHERE date = '2022-02-01';
+    CREATE TEMP TABLE poolofinplats AS
+    SELECT 
+        poolcusip,
+        SUM(ofinplat) AS ofinplat
+    FROM platinums
+    GROUP BY poolcusip;
 
 
-SELECT 
-    *,
-    poolofinplats.ofinplat * currfanniebodies.factor AS currfaceinplat,
-    currfanniebodies.remainingbalance - (poolofinplats.ofinplat * currfanniebodies.factor) AS float
-FROM currfanniebodies
-INNER JOIN poolofinplats
-ON currfanniebodies.cusip = poolofinplats.poolcusip
-LIMIT 10;
+    CREATE TEMP TABLE currfanniebodies AS
+    SELECT * 
+    FROM fanniebodies
+    WHERE date = fanniebodiesdate;
+
+    INSERT INTO fannieofinplat (cusip, ofinplat, currfaceinplat, fanniefloat, date)
+    SELECT 
+        currfanniebodies.cusip,
+        poolofinplats.ofinplat,
+        poolofinplats.ofinplat * currfanniebodies.factor AS currfaceinplat,
+        currfanniebodies.remainingbalance - (poolofinplats.ofinplat * currfanniebodies.factor) AS float,
+        currfanniebodies.date
+    FROM currfanniebodies
+    INNER JOIN poolofinplats
+    ON currfanniebodies.cusip = poolofinplats.poolcusip;
+
+    DROP TABLE IF EXISTS poolofinplats, currentfreddiebodies;
+
+    end;
+
+$$;
 
 
--- so these results are not good... i suppose they could just be rounding errors
-   cusip   | coupon | remainingbalance |   factor   | gwac  | wam | wala |    date    | poolcusip |  ofinplat  |   currfaceinplat   |        float
------------+--------+------------------+------------+-------+-----+------+------------+-----------+------------+--------------------+----------------------
- 3136054W4 |      5 |          7971.97 |  0.0002397 |  5.75 |  30 |  450 | 2022-02-01 | 3136054W4 |   33257712 |       7971.8735664 |  0.09643360000063694
- 31361ELS4 |  3.579 |         33177.19 |  0.0003023 | 4.329 |  51 |  429 | 2022-02-01 | 31361ELS4 |   35978057 | 10876.166631099999 |        22301.0233689
- 313612MX8 |    3.5 |         20624.79 | 0.00160771 |  4.25 |  51 |  429 | 2022-02-01 | 313612MX8 |   12828712 |     20624.84856952 | -0.05856951999885496
- 313614MK2 |   3.75 |         16464.05 | 0.00636309 |     5 |  46 |  434 | 2022-02-01 | 313614MK2 |    2587432 |     16464.06268488 | -0.01268487999914214
- 313615F92 |      9 |          1190.92 |  1.293e-05 | 9.375 |   2 |  358 | 2022-02-01 | 313615F92 |  125315958 |      1620.33533694 |  -429.41533693999986
- 313615HB5 |      8 |         14694.64 |  1.975e-05 | 8.543 |   6 |  353 | 2022-02-01 | 313615HB5 |  413898384 |        8174.493084 |          6520.146916
- 313615HM1 |      7 |          15894.7 |  6.334e-05 | 7.512 |   8 |  351 | 2022-02-01 | 313615HM1 |  284647974 |     18029.60267316 |   -2134.902673159999
- 313615LD6 |      7 |          2299.29 |  2.411e-05 |  7.75 |   8 |  350 | 2022-02-01 | 313615LD6 |   53222872 | 1283.2034439200002 |   1016.0865560799998
- 313615TW6 |    6.5 |        939341.85 | 0.00069672 | 7.001 |  21 |  337 | 2022-02-01 | 313615TW6 | 1168722250 |       814272.16602 |   125069.68397999997
- 31362RDJ3 |   4.25 |          1469.57 | 0.00023584 |  5.25 |  46 |  434 | 2022-02-01 | 31362RDJ3 |    6231151 |      1469.55465184 | 0.015348160000030475
+freddiesfloat( fanniebodiesdate DATE )
+
+CALL freddiesfloat('2022-02-01');
+
+
+
+
+
+
+
+
+
+
+
+
+----------------------------------------------------------
+----------------------------------------------------------
+
+
+-- will probably need this to double check at some point 
+
+   cusip   | ofinplat |   currfaceinplat   |       float        |    date
+-----------+----------+--------------------+--------------------+------------
+ 31360FCE3 | 19743329 |  5034.154028419999 | 1661.7159715800008 | 2022-02-01
+ 31360FCM5 | 15540574 |       1074.6306921 | 480.78930790000004 | 2022-02-01
+ 31360FCP8 | 46301234 |       2377.5683659 |  960.3416340999997 | 2022-02-01
+ 31360FCR4 | 38490842 |     11683.51018068 | 10334.049819320002 | 2022-02-01
+ 31360FCT0 | 62920579 |  7771.320712289999 |      5343.73928771 | 2022-02-01
+ 31360FCW3 | 13397811 |     12802.27830105 |      4610.58169895 | 2022-02-01
+ 31360FC29 | 18154179 |       4573.0376901 | 3452.1123098999997 | 2022-02-01
+ 31360FC45 | 70972545 | 12114.303706050001 |  7373.786293949999 | 2022-02-01
+ 31360FC60 | 84207859 |     31748.04700018 | 24033.032999820003 | 2022-02-01
+ 31360FC86 | 48460829 |  7636.942042109999 | 2611.1279578900003 | 2022-02-01
+(10 rows)
+
+-- fewer bad results but still some 
+   cusip   | coupon | remainingbalance |   factor   | gwac  | wam | wala |    date    | poolcusip | ofinplat  |   currfaceinplat   |        float
+-----------+--------+------------------+------------+-------+-----+------+------------+-----------+-----------+--------------------+---------------------
+ 3138ELLY7 |    5.5 |       10,148,982.9 | 0.12623244 | 5.994 | 138 |  210 | 2022-02-01 | 3138ELLY7 | 129,279,738 |  16319296.77030072 | -6170313.8703007195
+ 31418MTM4 |    5.5 |       8601601.09 | 0.03975311 | 5.942 | 141 |  209 | 2022-02-01 | 31418MTM4 | 332223821 |  13206930.10083331 |   -4605329.01083331
+ 31402RR92 |    5.5 |       6578177.17 | 0.01315635 | 6.051 | 152 |  199 | 2022-02-01 | 31402RR92 | 634852269 |  8352338.649258151 | -1774161.4792581508
+ 31416WN32 |    5.5 |        637404.53 | 0.08926809 | 6.208 | 164 |  196 | 2022-02-01 | 31416WN32 |  21421020 | 1912213.5412517998 | -1274809.0112517998
+ 31408FKZ1 |    5.5 |       1008050.78 | 0.13409611 | 5.916 | 153 |  192 | 2022-02-01 | 31408FKZ1 |  11765967 |   1577770.40508837 |  -569719.6250883699
+ 31418P3W3 |    5.5 |        471126.08 | 0.01860626 | 5.826 | 154 |  196 | 2022-02-01 | 31418P3W3 |  43344964 |    806487.66987464 | -335361.58987463993
+ 31405QMU9 |    5.5 |        838944.35 | 0.00824526 | 5.914 | 134 |  209 | 2022-02-01 | 31405QMU9 | 138413267 | 1141253.3738644202 | -302309.02386442025
+ 31406XVC3 |    5.5 |        150194.16 |     0.0556 | 6.195 | 142 |  201 | 2022-02-01 | 31406XVC3 |   8104002 | 450582.51119999995 |  -300388.3511999999
+ 31406MKK1 |    5.5 |        527200.22 | 0.02053666 | 6.067 | 148 |  201 | 2022-02-01 | 31406MKK1 |  39129490 |  803589.0321034001 |  -276388.8121034001
+ 31408BY85 |    5.5 |        192353.29 | 0.11589663 |  6.25 | 167 |  193 | 2022-02-01 | 31408BY85 |   3978203 |    461060.32115589 | -268707.03115588997
+
+
+
+fannies=# SELECT * FROM fannies where cusip = '3138ELLY7';
+   cusip   |  name  | indicator | issuedate  | maturitydate | originalface | istbaelig
+-----------+--------+-----------+------------+--------------+--------------+-----------
+ 3138ELLY7 | AL3942 | CL        | 2013-07-01 | 2038-12-01   |     80,399,166 | 30 year
+
+ platcusip | poolcusip | ofinplat  |    date
+-----------+-----------+-----------+------------
+ 3138EQ5T5 | 3138ELLY7 |    720,000 | 2021-06-01
+ 3138ETC79 | 3138ELLY7 |   7,400,000 | 2021-06-01
+ 3140J8KW2 | 3138ELLY7 | 119,739,738 | 2021-06-01
+ 3140J9TX9 | 3138ELLY7 |     50,000 | 2021-06-01
+ 3140J5ZL6 | 3138ELLY7 |     45,000 | 2021-06-01
+ 3140J8YZ0 | 3138ELLY7 |   1,325,000 | 2021-06-01
 
 
 ----------- trying the same thing but with calculating the factor and possibly subtartng from the real orignal face 

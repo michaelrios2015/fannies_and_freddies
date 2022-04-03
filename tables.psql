@@ -434,3 +434,18 @@ GROUP BY poolcusip, filename;
  SELECT 
     COUNT(DISTINCT poolcusip)
 FROM platinums;
+
+
+---------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+
+-- this table is a bit redunant (not N normalized) but that is ok 
+
+CREATE TABLE fannieofinplat (
+    cusip VARCHAR,
+    ofinplat DOUBLE PRECISION,
+    currfaceinplat DOUBLE PRECISION,
+    fanniefloat DOUBLE PRECISION, 
+    date DATE,
+    PRIMARY KEY (cusip, date)
+);
