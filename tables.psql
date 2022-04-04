@@ -449,3 +449,15 @@ CREATE TABLE fannieofinplat (
     date DATE,
     PRIMARY KEY (cusip, date)
 );
+
+
+
+CREATE TABLE freddiesofinplat (
+    cusip VARCHAR,
+    ofinplat DOUBLE PRECISION,
+    currfaceinplat DOUBLE PRECISION,
+    fanniefloat DOUBLE PRECISION, 
+    date DATE,
+    ecdate DATE,
+    PRIMARY KEY (cusip, date, ecdate)
+);

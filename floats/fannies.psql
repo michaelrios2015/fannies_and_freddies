@@ -2,7 +2,7 @@
 
 -- so this is just a temp table so I can see how much original face each pool lost 
 
-create or replace PROCEDURE freddiesfloat( fanniebodiesdate DATE )
+create or replace PROCEDURE fanniesfloat( fanniebodiesdate DATE )
 language plpgsql
 as
 $$
@@ -42,9 +42,9 @@ begin
 $$;
 
 
-freddiesfloat( fanniebodiesdate DATE )
+fanniesfloat( fanniebodiesdate DATE )
 
-CALL freddiesfloat('2022-02-01');
+CALL fanniesfloat('2022-02-01');
 
 
 
@@ -207,3 +207,11 @@ AND checkone.ofinplat = checktwo.ofinplat
 
 --   so we seem to have duplicate rows in the different files .. hopefully this is just a mistake and the platcusip, poolcusip is supposed to be our primary key
 -- then i can just ignore conflicts and we wont need a filename column... but at the moment we are just at the waiting game
+
+SELECT *,
+remainingbalance/originalface
+FROM fannies
+INNER JOIN fanniebodies
+ON fannies.cusip = fanniebodies.cusip
+WHERE date = '2022-02-01'
+LIMIT 1;

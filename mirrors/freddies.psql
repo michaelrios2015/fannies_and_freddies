@@ -86,6 +86,12 @@ INNER JOIN currentecs
 ON fdminusmirrortwo.cusip = currentecs.fdtwocusip;
 
 
+SELECT COUNT(*)
+FROM freddieswithoutmirrors
+INNER JOIN ecs
+ON freddieswithoutmirrors.cusip = ecs.fdonecusip;
+-- ON freddieswithoutmirrors.cusip = ecs.fdtwocusip;
+
 
 
 -- those two seem to work just fine togther and should get just the freddies that have nothing
