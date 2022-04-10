@@ -461,3 +461,31 @@ CREATE TABLE freddiesofinplat (
     ecdate DATE,
     PRIMARY KEY (cusip, date, ecdate)
 );
+
+
+--------------------------------------
+
+--  we need to the unique original face in cmo table 
+-- well I see no freedies or fannies in the cmos I imported from  
+-- OK so they get there own cmos.. which I might deal with tomorrow 
+
+CREATE TABLE uniqueofincmos (
+    cmo VARCHAR,
+    cusip VARCHAR,
+    faceincmo DOUBLE PRECISION,
+    date DATE,
+    collapsed DATE,
+    PRIMARY KEY (cmo, cusip, date)
+);
+
+SELECT * 
+FROM uniqueofincmos
+INNER JOIN fannies
+ON uniqueofincmos.cusip = fannies.cusip
+LIMIT 5;
+
+SELECT * 
+FROM uniqueofincmos
+INNER JOIN freddies
+ON uniqueofincmos.cusip = freddies.cusip
+LIMIT 5;

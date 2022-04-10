@@ -19,13 +19,15 @@ begin
 
     DROP TABLE IF EXISTS ratios, currfreddiebodies, currfreddiebodieswratio, poolofinplats;
 
+    -- probably need ecsdate in here
     CREATE TEMP TABLE ratios AS
     SELECT 
         freddies.cusip,
         freddieswithoutmirrors.originalface/freddies.originalface AS ofratio 
     FROM freddies
     INNER JOIN freddieswithoutmirrors
-    ON freddies.cusip = freddieswithoutmirrors.cusip;
+    ON freddies.cusip = freddieswithoutmirrors.cusip
+    WHERE ecdate = ecsdate;
 
 
     CREATE TEMP TABLE currfreddiebodies AS
