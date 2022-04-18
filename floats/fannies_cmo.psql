@@ -14,71 +14,125 @@ GROUP BY cusip;
 
 
 -- CREATE TEMP TABLE currfanniebodies AS
-SELECT * 
+SELECT 
+    fanniebodies.cusip,
+    fanniebodies.remainingbalance,
+    -- fanniebodies.factor,
+    fannies.originalface,
+    fanniebodies.remainingbalance / fannies.originalface AS factor,
+    fanniebodies.date
 INTO TEMP TABLE currfanniebodies
 FROM fanniebodies
+INNER JOIN fannies
+ON fanniebodies.cusip = fannies.cusip
 WHERE date = '2022-02-01';
+-- LIMIT 3;
 
 
 -- INSERT INTO fannieofinplat (cusip, ofinplat, currfaceinplat, fanniefloat, date)
 SELECT 
-    -- currfanniebodies.cusip,
+    currfanniebodies.cusip,
     -- poolofinplats.ofinplat,
-    *,
+    -- *,
     poolofincmos.faceincmo * currfanniebodies.factor AS currfaceincmos,
-    currfanniebodies.remainingbalance - (poolofincmos.faceincmo * currfanniebodies.factor) AS float
-    -- currfanniebodies.date
+    -- currfanniebodies.remainingbalance - (poolofincmos.faceincmo * currfanniebodies.factor) AS float
+    currfanniebodies.date
+INTO TEMP TABLE cfincmos
 FROM currfanniebodies
 LEFT JOIN poolofincmos
-ON currfanniebodies.cusip = poolofincmos.cusip
-LIMIT 3;
+ON currfanniebodies.cusip = poolofincmos.cusip;
+-- LIMIT 3;
 
+-- seems to work fine 
 
+UPDATE fanniebodies
+SET cfincmos = cfincmos.currfaceincmos
+FROM cfincmos
+WHERE fanniebodies.cusip = cfincmos.cusip
+AND fanniebodies.date = cfincmos.date;
+
+-- so I am getting more with negative float then I would like...
+
+SELECT count(*) FROM fanniebodies where remainingbalance - cfincmos < -1;
+
+--  28164 that many had negative float, mostly tiny amounts 
+
+-- so with the slight more accurate factor we only have   2670 with negative floate 
 -- this is how we did it for platinums just need to modify a bit 
 
+-- ok only one is very wong
+fannies=# SELECT COUNT(*) FROM fanniebodies where remainingbalance - cfincmos < 0;
+   cusip   | coupon | remainingbalance |   factor   | gwac | wam | wala |    date    |     cfincmos
+-----------+--------+------------------+------------+------+-----+------+------------+-------------------
+ 31403DKA6 |    5.5 |       3846115.75 | 0.04551616 | 5.99 | 126 |  224 | 2022-02-01 | 4221624.092455621 
 
-create or replace PROCEDURE fanniesfloat( fanniebodiesdate DATE )
+-- so hopefully just a collapsed cmo
+
+fannies=# SELECT * from ofincmos where cusip = '31403DKA6';
+    cmo     |   cusip   | faceincmo
+------------+-----------+-----------
+ 2014-057-3 | 31403DKA6 |   8250000
+ 2006-050-2 | 31403DKA6 |  84500000
+
+-- but other than that seems to work great!!
+
+
+-- this should be good 
+
+create or replace PROCEDURE fanniescmocurrentface( fanniebodiesdate DATE )
 language plpgsql
 as
 $$
 declare
 begin
 
-    DROP TABLE IF EXISTS poolofinplats, currentfreddiebodies;
+    DROP TABLE IF EXISTS poolofincmos, currfanniebodies, cfincmos;
 
-    CREATE TEMP TABLE poolofinplats AS
+    CREATE TEMP TABLE poolofincmos AS
     SELECT 
-        poolcusip,
-        SUM(ofinplat) AS ofinplat
-    FROM platinums
-    GROUP BY poolcusip;
+        cusip,
+        SUM(faceincmo) AS faceincmo
+    FROM ofincmos
+    GROUP BY cusip;
 
 
     CREATE TEMP TABLE currfanniebodies AS
-    SELECT * 
+    SELECT 
+        fanniebodies.cusip,
+        fanniebodies.remainingbalance,
+        fannies.originalface,
+        fanniebodies.remainingbalance / fannies.originalface AS factor,
+        fanniebodies.date
     FROM fanniebodies
+    INNER JOIN fannies
+    ON fanniebodies.cusip = fannies.cusip
     WHERE date = fanniebodiesdate;
 
-    INSERT INTO fannieofinplat (cusip, ofinplat, currfaceinplat, fanniefloat, date)
+
+    CREATE TEMP TABLE cfincmos AS
     SELECT 
         currfanniebodies.cusip,
-        poolofinplats.ofinplat,
-        poolofinplats.ofinplat * currfanniebodies.factor AS currfaceinplat,
-        currfanniebodies.remainingbalance - (poolofinplats.ofinplat * currfanniebodies.factor) AS float,
+        poolofincmos.faceincmo * currfanniebodies.factor AS currfaceincmos,
         currfanniebodies.date
     FROM currfanniebodies
-    INNER JOIN poolofinplats
-    ON currfanniebodies.cusip = poolofinplats.poolcusip;
+    LEFT JOIN poolofincmos
+    ON currfanniebodies.cusip = poolofincmos.cusip;
 
-    DROP TABLE IF EXISTS poolofinplats, currentfreddiebodies;
+    UPDATE fanniebodies
+    SET cfincmos = cfincmos.currfaceincmos
+    FROM cfincmos
+    WHERE fanniebodies.cusip = cfincmos.cusip
+    AND fanniebodies.date = cfincmos.date;
+
+
+    DROP TABLE IF EXISTS poolofincmos, currfanniebodies, cfincmos;
 
     end;
 
 $$;
 
 
-fanniesfloat( fanniebodiesdate DATE )
+fanniescmocurrentface( fanniebodiesdate DATE )
 
-CALL fanniesfloat('2022-02-01');
-
+CALL fanniescmocurrentface('2022-02-01');
 

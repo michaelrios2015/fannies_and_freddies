@@ -1,0 +1,196 @@
+
+    -- the ratios
+    CREATE TEMP TABLE ratios AS
+    SELECT 
+        freddies.cusip,
+        freddieswithoutmirrors.originalface/freddies.originalface AS ofratio 
+    FROM freddies
+    INNER JOIN freddieswithoutmirrors
+    ON freddies.cusip = freddieswithoutmirrors.cusip
+    WHERE ecdate = '2022-02-03';
+
+
+
+    CREATE TEMP TABLE currfreddiebodiesstepone AS
+    SELECT * 
+    FROM freddiebodieswomirrors
+    WHERE date = '2022-02-04'
+    and ecdate = '2022-02-03';
+
+CREATE TEMP TABLE currfreddiebodies AS
+SELECT
+    currfreddiebodiesstepone.cusip,
+    currfreddiebodiesstepone.remainingbalance,
+    CASE  
+        WHEN freddieswithoutmirrors.originalface > 0 THEN currfreddiebodiesstepone.remainingbalance / freddieswithoutmirrors.originalface 
+        ELSE 0
+    END
+    AS factor, 
+    currfreddiebodiesstepone.date,
+    currfreddiebodiesstepone.ecdate 
+FROM currfreddiebodiesstepone
+INNER JOIN freddieswithoutmirrors
+ON currfreddiebodiesstepone.cusip = freddieswithoutmirrors.cusip
+AND currfreddiebodiesstepone.ecdate = freddieswithoutmirrors.ecdate;
+
+
+
+
+    CREATE TEMP TABLE currfreddiebodieswratio AS
+    SELECT
+        currfreddiebodies.cusip,
+        currfreddiebodies.remainingbalance,
+        currfreddiebodies.factor,
+        currfreddiebodies.date,
+        currfreddiebodies.ecdate,
+        ratios.ofratio
+    FROM currfreddiebodies
+    INNER JOIN ratios
+    ON currfreddiebodies.cusip = ratios.cusip;
+    
+    -- CREATE TEMP TABLE poolofinplats AS
+    -- SELECT 
+    --     poolcusip,
+    --     SUM(ofinplat) AS ofinplat
+    -- FROM platinums
+    -- GROUP BY poolcusip;
+
+    CREATE TEMP TABLE poolofincmos AS
+    SELECT 
+        cusip,
+        SUM(faceincmo) AS faceincmo
+    FROM ofincmos
+    GROUP BY cusip;
+
+    CREATE TEMP TABLE cfincmos AS
+    SELECT
+        currfreddiebodieswratio.cusip,
+        poolofincmos.faceincmo * currfreddiebodieswratio.ofratio AS adjustedofincmo,
+        (poolofincmos.faceincmo * currfreddiebodieswratio.ofratio) * currfreddiebodieswratio.factor AS currfaceincmo,
+        currfreddiebodieswratio.remainingbalance - ( (poolofincmos.faceincmo * currfreddiebodieswratio.ofratio) * currfreddiebodieswratio.factor) AS float,
+        currfreddiebodieswratio.date,
+        currfreddiebodieswratio.ecdate
+    FROM currfreddiebodieswratio
+    INNER JOIN poolofincmos
+    ON currfreddiebodieswratio.cusip = poolofincmos.cusip;
+
+-- so i get some with negative float 
+fannies=# SELECT COUNT(*) FROM cfincmos where float < 0;
+ count
+-------
+  2589
+(1 row)
+
+-- but none more than a dollar so we should be good 
+
+-- added a column to fannie mirror bodies then update
+    UPDATE freddiebodieswomirrors
+    SET cfincmos = cfincmos.currfaceincmo
+    FROM cfincmos
+    WHERE freddiebodieswomirrors.cusip = cfincmos.cusip
+    AND freddiebodieswomirrors.date = cfincmos.date
+    AND freddiebodieswomirrors.ecdate = cfincmos.ecdate;
+
+
+-- seems to work 
+
+fannies=# SELECT * from freddiebodieswomirrors WHERE cfincmos > 0 and remainingbalance > cfincmos LIMIT 2;
+   cusip   | coupon | remainingbalance |         factor         | gwac | wam | wala |    date    |   ecdate   |     cfincmos
+-----------+--------+------------------+------------------------+------+-----+------+------------+------------+-------------------
+ 31281AME9 |    7.5 |          9526.51 | 0.00011267653910739363 | 8.25 |  23 |  306 | 2022-02-04 | 2022-02-03 | 9519.498815030582
+ 31281ATX0 |      6 |         96939.56 |   0.002680574525992552 |  6.5 |  79 |  273 | 2022-02-04 | 2022-02-03 | 90483.81174319846
+
+
+-- how we did it for the freddies with platinums will modify for cmos
+
+create or replace PROCEDURE freddiescurrentfaceincmo( freddiesdate DATE, ecsdate DATE )
+language plpgsql
+as
+$$
+declare
+begin
+
+    DROP TABLE IF EXISTS ratios, currfreddiebodiesstepone, 
+        currfreddiebodies, currfreddiebodieswratio, poolofincmos, cfincmos;
+
+    CREATE TEMP TABLE ratios AS
+    SELECT 
+        freddies.cusip,
+        freddieswithoutmirrors.originalface/freddies.originalface AS ofratio 
+    FROM freddies
+    INNER JOIN freddieswithoutmirrors
+    ON freddies.cusip = freddieswithoutmirrors.cusip
+    WHERE ecdate = ecsdate;
+
+    CREATE TEMP TABLE currfreddiebodiesstepone AS
+    SELECT * 
+    FROM freddiebodieswomirrors
+    WHERE date = freddiesdate
+    and ecdate = ecsdate;
+
+    CREATE TEMP TABLE currfreddiebodies AS
+    SELECT
+    currfreddiebodiesstepone.cusip,
+    currfreddiebodiesstepone.remainingbalance,
+    CASE  
+        WHEN freddieswithoutmirrors.originalface > 0 THEN currfreddiebodiesstepone.remainingbalance / freddieswithoutmirrors.originalface 
+        ELSE 0
+    END
+    AS factor, 
+    currfreddiebodiesstepone.date,
+    currfreddiebodiesstepone.ecdate 
+    FROM currfreddiebodiesstepone
+    INNER JOIN freddieswithoutmirrors
+    ON currfreddiebodiesstepone.cusip = freddieswithoutmirrors.cusip
+    AND currfreddiebodiesstepone.ecdate = freddieswithoutmirrors.ecdate;
+
+    CREATE TEMP TABLE currfreddiebodieswratio AS
+    SELECT
+        currfreddiebodies.cusip,
+        currfreddiebodies.remainingbalance,
+        currfreddiebodies.factor,
+        currfreddiebodies.date,
+        currfreddiebodies.ecdate,
+        ratios.ofratio
+    FROM currfreddiebodies
+    INNER JOIN ratios
+    ON currfreddiebodies.cusip = ratios.cusip;
+    
+    CREATE TEMP TABLE poolofincmos AS
+    SELECT 
+        cusip,
+        SUM(faceincmo) AS faceincmo
+    FROM ofincmos
+    GROUP BY cusip;
+
+    CREATE TEMP TABLE cfincmos AS
+    SELECT
+        currfreddiebodieswratio.cusip,
+        poolofincmos.faceincmo * currfreddiebodieswratio.ofratio AS adjustedofincmo,
+        (poolofincmos.faceincmo * currfreddiebodieswratio.ofratio) * currfreddiebodieswratio.factor AS currfaceincmo,
+        currfreddiebodieswratio.remainingbalance - ( (poolofincmos.faceincmo * currfreddiebodieswratio.ofratio) * currfreddiebodieswratio.factor) AS float,
+        currfreddiebodieswratio.date,
+        currfreddiebodieswratio.ecdate
+    FROM currfreddiebodieswratio
+    INNER JOIN poolofincmos
+    ON currfreddiebodieswratio.cusip = poolofincmos.cusip;
+
+    UPDATE freddiebodieswomirrors
+    SET cfincmos = cfincmos.currfaceincmo
+    FROM cfincmos
+    WHERE freddiebodieswomirrors.cusip = cfincmos.cusip
+    AND freddiebodieswomirrors.date = cfincmos.date
+    AND freddiebodieswomirrors.ecdate = cfincmos.ecdate;
+
+    DROP TABLE IF EXISTS ratios, currfreddiebodiesstepone, 
+        currfreddiebodies, currfreddiebodieswratio, poolofincmos, cfincmos;
+
+    end;
+
+$$;
+
+freddiescurrentfaceincmo( freddiesdate DATE, ecsdate DATE )
+
+CALL freddiescurrentfaceincmo( '2022-02-04', '2022-02-03' );
+
+ SELECT COUNT(*) FROM freddiebodieswomirrors where remainingbalance < cfincmos;
