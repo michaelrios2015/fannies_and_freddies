@@ -1,64 +1,82 @@
--- so here i was just tryong to get the ratio of originalface in mirror / originla face before mirror
--- seems ok need to and ecdat to my last one and recheck it
-SELECT
-    -- *,
-    freddies.cusip,
-    fanniemirrors.originalface/freddies.originalface AS ofratio 
-INTO TEMP TABLE ratios
-FROM freddies
-INNER JOIN fanniemirrors
-ON freddies.cusip = fanniemirrors.cusip
-WHERE ecdate = '2022-02-03'
--- AND freddies.cusip = '31329HHD6'
-;
+    -- this get me the ratio of how much original face was put in the mirrored fannie / how much we started with
+    -- CREATE TEMP TABLE ratios AS
+    -- SELECT
+    --     freddies.cusip,
+    --     fanniemirrors.originalface/freddies.originalface AS ofratio 
+    -- FROM freddies
+    -- INNER JOIN fanniemirrors
+    -- ON freddies.cusip = fanniemirrors.cusip
+    -- WHERE ecdate = '2022-02-03';
+
+
+    -- getting the fannie mirror bodies, ok here I put in both dates 
+    CREATE TEMP TABLE currfanniebodiesstepone  AS
+    SELECT * 
+    FROM fanniemirrorbodies
+    WHERE date = '2022-02-04'
+    and ecdate = '2022-02-03';
+
+    -- calculating the factor on our own not sure if needed... well i think it is needed for some 
+    CREATE TEMP TABLE currfanniebodies AS
+    SELECT
+        currfanniebodiesstepone.cusip,
+        currfanniebodiesstepone.remainingbalance,
+        CASE  
+            WHEN fanniemirrors.originalface > 0 THEN currfanniebodiesstepone.remainingbalance / fanniemirrors.originalface 
+            ELSE 0
+        END
+        AS factor, 
+        currfanniebodiesstepone.date,
+        currfanniebodiesstepone.ecdate 
+    FROM currfanniebodiesstepone
+    INNER JOIN fanniemirrors
+    ON currfanniebodiesstepone.cusip = fanniemirrors.cusip
+    AND currfanniebodiesstepone.ecdate = fanniemirrors.ecdate;
+
+
+    -- so just adding the ratio to the bodies
+    -- CREATE TEMP TABLE currfanniebodies AS
+    -- SELECT
+    --     currfanniebodies.cusip,
+    --     currfanniebodies.remainingbalance,
+    --     currfanniebodies.factor,
+    --     currfanniebodies.date,
+    --     currfanniebodies.ecdate,
+    --     ratios.ofratio
+    -- FROM currfanniebodies
+    -- INNER JOIN ratios
+    -- ON currfanniebodies.cusip = ratios.cusip;
+
+
+    -- original face in plats grouped by pools
+    CREATE TEMP TABLE poolofinplats AS
+    SELECT 
+        poolcusip,
+        SUM(ofinplat) AS ofinplat
+    FROM platinums
+    -- WHERE poolcusip = '31295VAL4'
+    GROUP BY poolcusip;
+
+    CREATE TEMP TABLE currfaceinplat AS
+    SELECT 
+        currfanniebodies.cusip,
+        -- poolofinplats.ofinplat * currfanniebodies.ofratio AS adjustedofinplat,
+        poolofinplats.ofinplat,
+        poolofinplats.ofinplat * currfanniebodies.factor AS currfaceinplat,
+        currfanniebodies.remainingbalance - ( poolofinplats.ofinplat  * currfanniebodies.factor) AS float,
+        currfanniebodies.date,
+        currfanniebodies.ecdate
+    FROM currfanniebodies
+    INNER JOIN poolofinplats
+    ON currfanniebodies.cusip = poolofinplats.poolcusip;
 -- LIMIT 10;
 
-
--- getting the fannie mirror bodies, ok here I put in both dates 
--- CREATE TEMP TABLE currfanniebodies AS
-SELECT * 
-INTO TEMP TABLE currfanniebodies
-FROM fanniemirrorbodies
-WHERE date = '2022-02-04'
-and ecdate = '2022-02-03';
--- LIMIT 10;
-
--- so just adding the ratio to the bodies
--- CREATE TEMP TABLE currfanniebodieswratio AS
-SELECT
-    -- *
-    currfanniebodies.cusip,
-    currfanniebodies.remainingbalance,
-    currfanniebodies.factor,
-    currfanniebodies.date,
-    currfanniebodies.ecdate,
-    ratios.ofratio
-INTO TEMP TABLE currfanniebodieswratio
-FROM currfanniebodies
-INNER JOIN ratios
-ON currfanniebodies.cusip = ratios.cusip;
--- LIMIT 10;
-
--- CREATE TEMP TABLE poolofinplats AS
-SELECT 
-    poolcusip,
-    SUM(ofinplat) AS ofinplat
-INTO TEMP TABLE poolofinplats
-FROM platinums
-GROUP BY poolcusip;
-
-INSERT INTO freddiesofinplat (cusip, ofinplat, currfaceinplat, fanniefloat, date, ecdate)
-SELECT 
-    currfanniebodieswratio.cusip,
-    poolofinplats.ofinplat * currfanniebodieswratio.ofratio AS adjustedofinplat,
-    (poolofinplats.ofinplat * currfanniebodieswratio.ofratio) * currfanniebodieswratio.factor AS currfaceinplat,
-    currfanniebodieswratio.remainingbalance - ( (poolofinplats.ofinplat * currfanniebodieswratio.ofratio) * currfanniebodieswratio.factor) AS float,
-    currfanniebodieswratio.date,
-    currfanniebodieswratio.ecdate
-FROM currfanniebodieswratio
-INNER JOIN poolofinplats
-ON currfanniebodieswratio.cusip = poolofinplats.poolcusip;
--- LIMIT 10;
+    UPDATE fanniemirrorbodies
+    SET cfinplats = currfaceinplat.currfaceinplat
+    FROM currfaceinplat
+    WHERE fanniemirrorbodies.cusip = currfaceinplat.cusip
+    AND fanniemirrorbodies.date = currfaceinplat.date
+    AND fanniemirrorbodies.ecdate = currfaceinplat.ecdate;
 
 
 -- so with just the freddies (non of the mirrors that are now platinums)
@@ -73,7 +91,7 @@ fannies=# SELECT COUNT(*) from freddiesofinplat;
 --------
  199314
 
--- these seem to be right
+-- these seem to be right ok seems to still check out 
 
    cusip   |  adjustedofinplat  |   currfaceinplat   |        float         |    date    |   ecdate
 -----------+--------------------+--------------------+----------------------+------------+------------
@@ -90,6 +108,16 @@ fannies=# SELECT COUNT(*) from freddiesofinplat;
 
 
 
+-- just checking differences seem minimal 
+SELECT * 
+FROM currfaceinplat
+INNER JOIN freddiesofinplat
+ON currfaceinplat.cusip = freddiesofinplat.cusip
+WHERE currfaceinplat.currfaceinplat != freddiesofinplat.currfaceinplat
+LIMIT 5;
+
+-- so just need to add colunm to fanniemirrorbodies and put these in there and double chack a couple
+-- things and we should be good to go 
 
 
 -- so I don't have tables that just contain freddies with nothing to do with mirrors
@@ -110,41 +138,30 @@ $$
 declare
 begin
 
-    DROP TABLE IF EXISTS ratios, currfanniebodies, currfanniebodieswratio, poolofinplats;
+    DROP TABLE IF EXISTS currfanniebodies, currfanniebodiesstepone, 
+        poolofinplats, currfaceinplat;
 
-    -- so here i was just tryong to get the ratio of originalface in mirror / originla face before mirror
-    -- seems ok need to and ecdat to my last one and recheck it
-    CREATE TEMP TABLE ratios AS
-    SELECT
-        freddies.cusip,
-        fanniemirrors.originalface/freddies.originalface AS ofratio 
-    FROM freddies
-    INNER JOIN fanniemirrors
-    ON freddies.cusip = fanniemirrors.cusip
-    WHERE ecdate = ecsdate;
-
-
-    -- getting the fannie mirror bodies, ok here I put in both dates 
-    CREATE TEMP TABLE currfanniebodies AS
+    CREATE TEMP TABLE currfanniebodiesstepone  AS
     SELECT * 
     FROM fanniemirrorbodies
     WHERE date = fanniesdate
     and ecdate = ecsdate;
- 
 
-    -- so just adding the ratio to the bodies
-    CREATE TEMP TABLE currfanniebodieswratio AS
+    CREATE TEMP TABLE currfanniebodies AS
     SELECT
-        currfanniebodies.cusip,
-        currfanniebodies.remainingbalance,
-        currfanniebodies.factor,
-        currfanniebodies.date,
-        currfanniebodies.ecdate,
-        ratios.ofratio
-    FROM currfanniebodies
-    INNER JOIN ratios
-    ON currfanniebodies.cusip = ratios.cusip;
-
+        currfanniebodiesstepone.cusip,
+        currfanniebodiesstepone.remainingbalance,
+        CASE  
+            WHEN fanniemirrors.originalface > 0 THEN currfanniebodiesstepone.remainingbalance / fanniemirrors.originalface 
+            ELSE 0
+        END
+        AS factor, 
+        currfanniebodiesstepone.date,
+        currfanniebodiesstepone.ecdate 
+    FROM currfanniebodiesstepone
+    INNER JOIN fanniemirrors
+    ON currfanniebodiesstepone.cusip = fanniemirrors.cusip
+    AND currfanniebodiesstepone.ecdate = fanniemirrors.ecdate;
 
     CREATE TEMP TABLE poolofinplats AS
     SELECT 
@@ -153,19 +170,28 @@ begin
     FROM platinums
     GROUP BY poolcusip;
 
-    INSERT INTO freddiesofinplat (cusip, ofinplat, currfaceinplat, fanniefloat, date, ecdate)
+    CREATE TEMP TABLE currfaceinplat AS
     SELECT 
-        currfanniebodieswratio.cusip,
-        poolofinplats.ofinplat * currfanniebodieswratio.ofratio AS adjustedofinplat,
-        (poolofinplats.ofinplat * currfanniebodieswratio.ofratio) * currfanniebodieswratio.factor AS currfaceinplat,
-        currfanniebodieswratio.remainingbalance - ( (poolofinplats.ofinplat * currfanniebodieswratio.ofratio) * currfanniebodieswratio.factor) AS float,
-        currfanniebodieswratio.date,
-        currfanniebodieswratio.ecdate
-    FROM currfanniebodieswratio
+        currfanniebodies.cusip,
+        poolofinplats.ofinplat,
+        poolofinplats.ofinplat * currfanniebodies.factor AS currfaceinplat,
+        currfanniebodies.remainingbalance - ( poolofinplats.ofinplat  * currfanniebodies.factor) AS float,
+        currfanniebodies.date,
+        currfanniebodies.ecdate
+    FROM currfanniebodies
     INNER JOIN poolofinplats
-    ON currfanniebodieswratio.cusip = poolofinplats.poolcusip;
+    ON currfanniebodies.cusip = poolofinplats.poolcusip;
 
-    DROP TABLE IF EXISTS ratios, currfanniebodies, currfanniebodieswratio, poolofinplats;
+    UPDATE fanniemirrorbodies
+    SET cfinplats = currfaceinplat.currfaceinplat
+    FROM currfaceinplat
+    WHERE fanniemirrorbodies.cusip = currfaceinplat.cusip
+    AND fanniemirrorbodies.date = currfaceinplat.date
+    AND fanniemirrorbodies.ecdate = currfaceinplat.ecdate;
+
+
+    DROP TABLE IF EXISTS currfanniebodies, currfanniebodiesstepone, 
+        poolofinplats, currfaceinplat;
 
     end;
 
@@ -174,7 +200,7 @@ $$;
 
 fanniemirrorsfloat( fanniesdate DATE, ecsdate DATE )
 
-CALL fanniemirrorsfloat( '2022-02-04', '2022-02-03' )
+CALL fanniemirrorsfloat( '2022-02-04', '2022-02-03' );
 
 -- ok called it got the same number of them checked two seemed to be right now lets modify the freddie one
 
@@ -182,16 +208,35 @@ CALL fanniemirrorsfloat( '2022-02-04', '2022-02-03' )
 -- going to truncate freddiesofinplat want to be able to double check some 
 -- ok checked two they are the same and the count is the same so lets call it a victory 
 
-fannies=# SELECT * from freddiesofinplat limit 10;
-   cusip   | ofinplat  |   currfaceinplat   |       fanniefloat       |    date    |   ecdate
------------+-----------+--------------------+-------------------------+------------+------------
- 31281A3X8 |  12870254 | 15393.050000000001 | -1.8189894035458565e-12 | 2022-02-04 | 2022-02-03
- 31281A7H9 |  70583482 |  75915.50434085494 |                       0 | 2022-02-04 | 2022-02-03
- 31281A7L0 | 106237894 |           144526.7 |                       0 | 2022-02-04 | 2022-02-03
- 31281AD33 |  37352120 |           17345.82 |                       0 | 2022-02-04 | 2022-02-03
- 31281AD41 |  47569930 |               2714 |                       0 | 2022-02-04 | 2022-02-03
- 31281AD66 |  18562000 |       82623.007342 |                       0 | 2022-02-04 | 2022-02-03
- 31281AD74 |  60481059 |          149326.83 |                       0 | 2022-02-04 | 2022-02-03
- 31281AD82 |  41897245 |  429084.6770551009 |                       0 | 2022-02-04 | 2022-02-03
- 31281ADE9 | 268486793 |            9184.88 |                       0 | 2022-02-04 | 2022-02-03
- 31281ADH2 |   9412240 |            1937.77 |                       0 | 2022-02-04 | 2022-02-03
+fannies=# SELECT * FROM fanniemirrorbodies where cfinplats Is NOT NULL LImit 4;
+   cusip   | coupon |  remainingbalance  |   factor   | gwac | wam | wala |    date    |   ecdate   |      cfincmos      |     cfinplats
+-----------+--------+--------------------+------------+------+-----+------+------------+------------+--------------------+--------------------
+ 3131WC2E7 |    6.5 | 3668.3942238428713 | 0.02445596 |    7 |  68 |  221 | 2022-02-04 | 2022-02-03 |                    | 3668.3942238428713
+ 3131WC3A4 |    5.5 | 27689.613407797042 |  0.0096478 | 6.25 | 126 |  221 | 2022-02-04 | 2022-02-03 |                    | 23676.128186788734
+ 3131WQTK3 |      5 |                  0 |          0 |      |     |      | 2022-02-04 | 2022-02-03 |                    |                  0
+ 3131WCGD4 |    5.5 | 115413.81179806289 | 0.02227366 |    6 | 133 |  224 | 2022-02-04 | 2022-02-03 | 374.39794282914846 | 1113.6831327116258
+
+
+-- SEEMS to work apprently did not need ratios at all
+
+fannies-# FROM fanniemirrorbodies
+fannies-# WHERE remainingbalance + 1 < cfinplats
+fannies-# LIMIT 5;
+ cusip | coupon | remainingbalance | factor | gwac | wam | wala | date | ecdate | cfincmos | cfinplats
+-------+--------+------------------+--------+------+-----+------+------+--------+----------+-----------
+(0 rows)
+
+
+fannies=# SELECT *
+fannies-# FROM fanniemirrorbodies
+fannies-# WHERE remainingbalance < cfinplats
+fannies-# LIMIT 5;
+   cusip   | coupon | remainingbalance |   factor   | gwac  | wam | wala |    date    |   ecdate   | cfincmos |     cfinplats
+-----------+--------+------------------+------------+-------+-----+------+------------+------------+----------+--------------------
+ 3131YCL79 |      4 |        617296.38 | 0.56520846 | 4.477 | 144 |   33 | 2022-02-04 | 2022-02-03 |          |  617296.3800000001
+ 3132ACHA1 |    4.5 |       6601686.92 | 0.34138771 | 4.841 | 302 |   51 | 2022-02-04 | 2022-02-03 |          |  6601686.920000001
+ 3132AEFF8 |    3.5 |      33056631.87 | 0.37128111 | 4.158 | 130 |   40 | 2022-02-04 | 2022-02-03 |          | 33056631.870000005
+ 3132AEKW5 |    5.5 |        948345.95 | 0.53407932 | 6.025 | 167 |  181 | 2022-02-04 | 2022-02-03 |          |  948345.9500000001
+ 3131X4J97 |      4 |         63642.92 | 0.00908341 | 4.438 |  15 |  165 | 2022-02-04 | 2022-02-03 |          | 63642.920000000006
+
+--  Looking pretty good, just calculation errors... so that is great!!

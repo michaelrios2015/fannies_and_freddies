@@ -1,52 +1,43 @@
 
--- so I don't have tables that just contain freddies with nothing to do with mirrors
--- but I can check freddies against freddies
 
--- you know what it's prbably best to figure out how to deal wit the split because once I do I should just be able to do iit for all of them
--- so to start with I need one that is split and has original face in the platinums...
-
-
--- so with these I need to check to see check the not adujsted orginal face of the freddies and get the ratio of that 
--- against 
-
-
-create or replace PROCEDURE freddiesfloat( freddiesdate DATE, ecsdate DATE )
-language plpgsql
-as
-$$
-declare
-begin
-
-    DROP TABLE IF EXISTS ratios, currfreddiebodies, currfreddiebodieswratio, poolofinplats;
-
-    -- probably need ecsdate in here
-    CREATE TEMP TABLE ratios AS
-    SELECT 
-        freddies.cusip,
-        freddieswithoutmirrors.originalface/freddies.originalface AS ofratio 
-    FROM freddies
-    INNER JOIN freddieswithoutmirrors
-    ON freddies.cusip = freddieswithoutmirrors.cusip
-    WHERE ecdate = ecsdate;
-
-
-    CREATE TEMP TABLE currfreddiebodies AS
+    CREATE TEMP TABLE currfreddiebodiesstepone AS
     SELECT * 
     FROM freddiebodieswomirrors
-    WHERE date = freddiesdate
-    and ecdate = ecsdate;
+    WHERE date = '2022-02-04'
+    and ecdate = '2022-02-03';
 
-    CREATE TEMP TABLE currfreddiebodieswratio AS
+
+   CREATE TEMP TABLE currfreddiebodies AS
     SELECT
-        currfreddiebodies.cusip,
-        currfreddiebodies.remainingbalance,
-        currfreddiebodies.factor,
-        currfreddiebodies.date,
-        currfreddiebodies.ecdate,
-        ratios.ofratio
-    FROM currfreddiebodies
-    INNER JOIN ratios
-    ON currfreddiebodies.cusip = ratios.cusip;
+        -- *,
+        currfreddiebodiesstepone.cusip,
+        currfreddiebodiesstepone.remainingbalance,
+        CASE  
+            WHEN freddieswithoutmirrors.originalface > 0 THEN currfreddiebodiesstepone.remainingbalance / freddieswithoutmirrors.originalface 
+            ELSE 0
+        END
+        AS factor, 
+        currfreddiebodiesstepone.date,
+        currfreddiebodiesstepone.ecdate 
+    FROM currfreddiebodiesstepone
+    INNER JOIN freddieswithoutmirrors
+    ON currfreddiebodiesstepone.cusip = freddieswithoutmirrors.cusip
+    AND currfreddiebodiesstepone.ecdate = freddieswithoutmirrors.ecdate;
+    -- LIMIT 5;
+
+
+
+    -- CREATE TEMP TABLE currfreddiebodieswratio AS
+    -- SELECT
+    --     currfreddiebodies.cusip,
+    --     currfreddiebodies.remainingbalance,
+    --     currfreddiebodies.factor,
+    --     currfreddiebodies.date,
+    --     currfreddiebodies.ecdate,
+    --     ratios.ofratio
+    -- FROM currfreddiebodies
+    -- INNER JOIN ratios
+    -- ON currfreddiebodies.cusip = ratios.cusip;
     
     CREATE TEMP TABLE poolofinplats AS
     SELECT 
@@ -55,19 +46,98 @@ begin
     FROM platinums
     GROUP BY poolcusip;
 
-    INSERT INTO freddiesofinplat (cusip, ofinplat, currfaceinplat, fanniefloat, date, ecdate)
-    SELECT 
-        currfreddiebodieswratio.cusip,
-        poolofinplats.ofinplat * currfreddiebodieswratio.ofratio AS adjustedofinplat,
-        (poolofinplats.ofinplat * currfreddiebodieswratio.ofratio) * currfreddiebodieswratio.factor AS currfaceinplat,
-        currfreddiebodieswratio.remainingbalance - ( (poolofinplats.ofinplat * currfreddiebodieswratio.ofratio) * currfreddiebodieswratio.factor) AS float,
-        currfreddiebodieswratio.date,
-        currfreddiebodieswratio.ecdate
-    FROM currfreddiebodieswratio
+    -- INSERT INTO freddiesofinplat (cusip, ofinplat, currfaceinplat, fanniefloat, date, ecdate)
+    CREATE TEMP TABLE cfinplats AS
+    SELECT
+        -- *, 
+        currfreddiebodies.cusip,
+        -- poolofinplats.ofinplat * currfreddiebodies.ofratio AS adjustedofinplat,
+        poolofinplats.ofinplat * currfreddiebodies.factor AS currfaceinplat,
+        currfreddiebodies.remainingbalance - ( poolofinplats.ofinplat * currfreddiebodies.factor) AS float,
+        currfreddiebodies.date,
+        currfreddiebodies.ecdate
+    FROM currfreddiebodies
     INNER JOIN poolofinplats
-    ON currfreddiebodieswratio.cusip = poolofinplats.poolcusip;
+    ON currfreddiebodies.cusip = poolofinplats.poolcusip;
+    -- LIMIT 5;
 
-    DROP TABLE IF EXISTS ratios, currfreddiebodies, currfreddiebodieswratio, poolofinplats;
+
+    UPDATE freddiebodieswomirrors
+    SET cfinplats = cfinplats.currfaceinplat
+    FROM cfinplats
+    WHERE freddiebodieswomirrors.cusip = cfinplats.cusip
+    AND freddiebodieswomirrors.date = cfinplats.date
+    AND freddiebodieswomirrors.ecdate = cfinplats.ecdate;
+
+
+-- the calculations are right for the data given.. the data is not all correct but that I can't help 
+
+    cusip   | coupon | remainingbalance  |        factor        | gwac  | wam | wala |    date    |   ecdate   |      cfincmos      |     cfinplats
+-----------+--------+-------------------+----------------------+-------+-----+------+------------+------------+--------------------+-------------------
+ 31281BA91 |      5 |          83937.55 |           0.02406271 |   5.5 | 123 |  230 | 2022-02-04 | 2022-02-03 |                    |          83937.55
+ 31281BMZ0 |    4.5 | 529430.2137625023 | 0.013471669537036449 | 5.148 | 128 |  195 | 2022-02-04 | 2022-02-03 | 232772.98689474302 | 589042.3514638885
+ 31281BNL0 |    4.5 |         175139.16 |  0.01384762119671884 | 5.125 | 159 |  189 | 2022-02-04 | 2022-02-03 | 150905.82290574204 |         175139.16
+ 31281BVD9 |      5 |            146627 | 0.004474078450816123 | 5.625 | 145 |  178 | 2022-02-04 | 2022-02-03 |                    |            146627
+ 31281BW71 |      3 |         259424.95 |   0.1658306363410311 |     4 | 323 |   37 | 2022-02-04 | 2022-02-03 |                    |         259424.95
+
+create or replace PROCEDURE freddiesfloat( freddiesdate DATE, ecsdate DATE )
+language plpgsql
+as
+$$
+declare
+begin
+
+    DROP TABLE IF EXISTS currfreddiebodiesstepone, currfreddiebodies, poolofinplats, cfinplats;
+
+    CREATE TEMP TABLE currfreddiebodiesstepone AS
+    SELECT * 
+    FROM freddiebodieswomirrors
+    WHERE date = freddiesdate
+    and ecdate = ecsdate;
+
+   CREATE TEMP TABLE currfreddiebodies AS
+    SELECT
+        currfreddiebodiesstepone.cusip,
+        currfreddiebodiesstepone.remainingbalance,
+        CASE  
+            WHEN freddieswithoutmirrors.originalface > 0 THEN currfreddiebodiesstepone.remainingbalance / freddieswithoutmirrors.originalface 
+            ELSE 0
+        END
+        AS factor, 
+        currfreddiebodiesstepone.date,
+        currfreddiebodiesstepone.ecdate 
+    FROM currfreddiebodiesstepone
+    INNER JOIN freddieswithoutmirrors
+    ON currfreddiebodiesstepone.cusip = freddieswithoutmirrors.cusip
+    AND currfreddiebodiesstepone.ecdate = freddieswithoutmirrors.ecdate;
+
+
+    CREATE TEMP TABLE poolofinplats AS
+    SELECT 
+        poolcusip,
+        SUM(ofinplat) AS ofinplat
+    FROM platinums
+    GROUP BY poolcusip;
+
+    CREATE TEMP TABLE cfinplats AS
+    SELECT
+        currfreddiebodies.cusip,
+        poolofinplats.ofinplat * currfreddiebodies.factor AS currfaceinplat,
+        currfreddiebodies.remainingbalance - ( poolofinplats.ofinplat * currfreddiebodies.factor) AS float,
+        currfreddiebodies.date,
+        currfreddiebodies.ecdate
+    FROM currfreddiebodies
+    INNER JOIN poolofinplats
+    ON currfreddiebodies.cusip = poolofinplats.poolcusip;
+
+    UPDATE freddiebodieswomirrors
+    SET cfinplats = cfinplats.currfaceinplat
+    FROM cfinplats
+    WHERE freddiebodieswomirrors.cusip = cfinplats.cusip
+    AND freddiebodieswomirrors.date = cfinplats.date
+    AND freddiebodieswomirrors.ecdate = cfinplats.ecdate;
+
+    DROP TABLE IF EXISTS currfreddiebodiesstepone, currfreddiebodies, poolofinplats, cfinplats;
 
     end;
 
@@ -78,164 +148,71 @@ freddiesfloat( freddiesdate DATE, ecsdate DATE )
 CALL freddiesfloat( '2022-02-04', '2022-02-03' );
 
 
-fannies=# SELECT COUNT(*) from freddiesofinplat;
+fannies=# SELECT * FROM freddiebodieswomirrors where cfinplats is not null limit 5;
+   cusip   | coupon | remainingbalance  |        factor        | gwac  | wam | wala |    date    |   ecdate   |      cfincmos      |     cfinplats
+-----------+--------+-------------------+----------------------+-------+-----+------+------------+------------+--------------------+-------------------
+ 31281BA91 |      5 |          83937.55 |           0.02406271 |   5.5 | 123 |  230 | 2022-02-04 | 2022-02-03 |                    |          83937.55
+ 31281BMZ0 |    4.5 | 529430.2137625023 | 0.013471669537036449 | 5.148 | 128 |  195 | 2022-02-04 | 2022-02-03 | 232772.98689474302 | 589042.3514638885
+ 31281BNL0 |    4.5 |         175139.16 |  0.01384762119671884 | 5.125 | 159 |  189 | 2022-02-04 | 2022-02-03 | 150905.82290574204 |         175139.16
+ 31281BVD9 |      5 |            146627 | 0.004474078450816123 | 5.625 | 145 |  178 | 2022-02-04 | 2022-02-03 |                    |            146627
+ 31281BW71 |      3 |         259424.95 |   0.1658306363410311 |     4 | 323 |   37 | 2022-02-04 | 2022-02-03 |                    |         259424.95
+
+SELECT *
+FROM freddiebodieswomirrors
+WHERE cfinplats > remainingbalance + 1
+LIMIT 5
+
+
+SELECT COUNT(*)
+FROM freddiebodieswomirrors
+WHERE cfinplats > remainingbalance + 1
+
+
+
+
+
+fannies=# SELECT COUNT(*)
+fannies-# FROM freddiebodieswomirrors
+fannies-# WHERE cfinplats > remainingbalance + 1
+fannies-# ;
  count
---------
- 182492
-
-fannies=# SELECT * from freddiesofinplat LIMIT 10;
-   cusip   | ofinplat  |   currfaceinplat   |       fanniefloat       |    date    |   ecdate
------------+-----------+--------------------+-------------------------+------------+------------
- 31281A3X8 |  12870254 | 15393.050000000001 | -1.8189894035458565e-12 | 2022-02-04 | 2022-02-03
- 31281A7H9 |  70583482 |  75915.50434085494 |                       0 | 2022-02-04 | 2022-02-03
- 31281A7L0 | 106237894 |           144526.7 |                       0 | 2022-02-04 | 2022-02-03
- 31281AD33 |  37352120 |           17345.82 |                       0 | 2022-02-04 | 2022-02-03
- 31281AD41 |  47569930 |               2714 |                       0 | 2022-02-04 | 2022-02-03
- 31281AD66 |  18562000 |       82623.007342 |                       0 | 2022-02-04 | 2022-02-03
- 31281AD74 |  60481059 |          149326.83 |                       0 | 2022-02-04 | 2022-02-03
- 31281AD82 |  41897245 |  429084.6770551009 |                       0 | 2022-02-04 | 2022-02-03
- 31281ADE9 | 268486793 |            9184.88 |                       0 | 2022-02-04 | 2022-02-03
- 31281ADH2 |   9412240 |            1937.77 |                       0 | 2022-02-04 | 2022-02-03
-
-     SELECT * 
-     INTO TEMP TABLE exchanged
-     FROM ecs 
-     WHERE exchanged > 0 
-     AND exchanged < exchangeable;
+-------
+ 29563
+(1 row)
 
 
-
-    SELECT 
-        poolcusip,
-        SUM(ofinplat) AS ofinplat
-    INTO TEMP TABLE poolofinplats 
-    FROM platinums
-    GROUP BY poolcusip;
+fannies=# SELECT * FROM ecs where fdonecusip ='3129416Q5';
+ fdonename | fdonecusip | fdtwoname | fdtwocusip | exchangeable | exchanged |    date
+-----------+------------+-----------+------------+--------------+-----------+------------
+ A93579    | 3129416Q5  | ZJ0361    | 3131WQMJ3  |     24453405 |         0 | 2022-02-03
+(1 row)
 
 
-    SELECT *
-    FROM exchanged
-    INNER JOIN poolofinplats
-    ON exchanged.fdonecusip = poolofinplats.poolcusip
-    WHERE exchangeable > ofinplat
-    LIMIT 4; 
+fannies=# SELECT * from ofinplast where poolcusip = '3129416Q5';
+ERROR:  relation "ofinplast" does not exist
+LINE 1: SELECT * from ofinplast where poolcusip = '3129416Q5';
+                      ^
+fannies=# SELECT * from ofinplats where poolcusip = '3129416Q5';
+ERROR:  relation "ofinplats" does not exist
+LINE 1: SELECT * from ofinplats where poolcusip = '3129416Q5';
+                      ^
+fannies=# SELECT * from platinums where poolcusip = '3129416Q5';
+ platcusip | poolcusip | ofinplat |    date
+-----------+-----------+----------+------------
+ 3128M9D33 | 3129416Q5 | 16653405 | 2021-06-01
+ 3131WQMJ3 | 3129416Q5 | 24453405 | 2021-06-01
+ 31335A7A0 | 3129416Q5 |  3668000 | 2021-06-01
+(3 rows)
 
--- here are for freddies that have been mirrored but don't have all their original face in platinums
 
- fdonename | fdonecusip | fdtwoname | fdtwocusip | exchangeable | exchanged |    date    | poolcusip | ofinplat
------------+------------+-----------+------------+--------------+-----------+------------+-----------+----------
- N31347    | 31281BP87  | ZL0751    | 3131XFZQ6  |     88700380 |   1100000 | 2022-02-03 | 31281BP87 |  1000000
- N31324    | 31281BPH7  | ZL0744    | 3131XFZH6  |     83881277 |   1100000 | 2022-02-03 | 31281BPH7 | 81931277
- N31395    | 31281BRQ5  | ZL0757    | 3131XFZW3  |    243741827 |   9825000 | 2022-02-03 | 31281BRQ5 |  1175000
- N31475    | 31281BT83  | ZL0780    | 3131XF2M1  |     11092357 |   1100000 | 2022-02-03 | 31281BT83 |  3492357
-
--- this is one of them wih the the adjusted orginal or current face (remainbalance)
-
-   cusip   |  name  | indicator | issuedate  | maturitydate | originalface | istbaelig |   ecdate
------------+--------+-----------+------------+--------------+--------------+-----------+------------
- 31281BP87 | N31347 | N3        | 2006-11-01 | 2036-11-01   |     87600380 | none      | 2022-02-03
-
-   cusip   | coupon |  remainingbalance  |        factor         | gwac  | wam | wala |    date    |   ecdate
------------+--------+--------------------+-----------------------+-------+-----+------+------------+------------
- 31281BP87 |    5.5 | 25855.067320990056 | 0.0002951478900090394 | 6.125 |  40 |  186 | 2022-02-04 | 2022-02-03
+fannies=# SELECT SUM(ofinplat) from platinums where poolcusip = '3129416Q5';
+   sum
+----------
+ 44774810
+(1 row)
 
 
 
--- the same one without adjusting the original or current face (remaining balance)
-
-
-   cusip   |  name  | indicator | issuedate  | maturitydate | originalface | istbaelig
------------+--------+-----------+------------+--------------+--------------+-----------
- 31281BP87 | N31347 | N3        | 2006-11-01 | 2036-11-01   |     88700380 | none
-
-
-   cusip   | coupon | remainingbalance |   factor   | gwac  | wam | wala |    date
------------+--------+------------------+------------+-------+-----+------+------------
- 31281BP87 |    5.5 |         26179.73 | 0.00029515 | 6.125 |  40 |  186 | 2022-02-04
-
--- so these are 4 where it looks like all the original face is in a plat and both facors should be zero 
-
- fdonename | fdonecusip | fdtwoname | fdtwocusip | exchangeable | exchanged |    date    | poolcusip | ofinplat
------------+------------+-----------+------------+--------------+-----------+------------+-----------+----------
- N30896    | 31281A7H9  | ZL0677    | 3131XFXE5  |     74283482 |   3700000 | 2022-02-03 | 31281A7H9 | 74283482
- N30125    | 31281AD66  | ZT0687    | 3132ACXQ8  |     30000000 |  11438000 | 2022-02-03 | 31281AD66 | 30000000
- N30127    | 31281AD82  | ZT0689    | 3132ACXS4  |     50758541 |   8861296 | 2022-02-03 | 31281AD82 | 50758541
- N30129    | 31281AEA6  | ZT0691    | 3132ACXU9  |      3354838 |   1000000 | 2022-02-03 | 31281AEA6 |  3354838
-
-
-
-    SELECT * 
-    -- INTO TEMP TABLE currfreddiebodies
-    FROM freddiebodieswomirrors
-    WHERE date = '2022-02-04'
-    and ecdate = '2022-02-03'
-    LIMIT 10;
-
-
-    -- INSERT INTO fannieofinplat (cusip, ofinplat, currfaceinplat, fanniefloat, date)
-    SELECT *,
-        -- currfanniebodies.cusip,
-        -- poolofinplats.ofinplat,
-        poolofinplats.ofinplat * currfreddiebodies.factor AS currfaceinplat,
-        currfreddiebodies.remainingbalance - (poolofinplats.ofinplat * currfreddiebodies.factor) AS float
-        -- currfanniebodies.date
-    FROM currfreddiebodies
-    INNER JOIN poolofinplats
-    ON currfreddiebodies.cusip = poolofinplats.poolcusip
-    LIMIT 4;
-
-
-
-
-
-
--- so we have the tables platinums which has the amount of pool original face in platinums
-
--- so this is just a temp table so I can see how much original face each pool lost 
-
-create or replace PROCEDURE freddiesfloat( fanniebodiesdate DATE )
-language plpgsql
-as
-$$
-declare
-begin
-
-    DROP TABLE IF EXISTS poolofinplats, currentfreddiebodies;
-
-    CREATE TEMP TABLE poolofinplats AS
-    SELECT 
-        poolcusip,
-        SUM(ofinplat) AS ofinplat
-    FROM platinums
-    GROUP BY poolcusip;
-
-
-    CREATE TEMP TABLE currfanniebodies AS
-    SELECT * 
-    FROM fanniebodies
-    WHERE date = fanniebodiesdate;
-
-    INSERT INTO fannieofinplat (cusip, ofinplat, currfaceinplat, fanniefloat, date)
-    SELECT 
-        currfanniebodies.cusip,
-        poolofinplats.ofinplat,
-        poolofinplats.ofinplat * currfanniebodies.factor AS currfaceinplat,
-        currfanniebodies.remainingbalance - (poolofinplats.ofinplat * currfanniebodies.factor) AS float,
-        currfanniebodies.date
-    FROM currfanniebodies
-    INNER JOIN poolofinplats
-    ON currfanniebodies.cusip = poolofinplats.poolcusip;
-
-    DROP TABLE IF EXISTS poolofinplats, currentfreddiebodies;
-
-    end;
-
-$$;
-
-
-freddiesfloat( fanniebodiesdate DATE )
-
-CALL freddiesfloat('2022-02-01');
 
 
 

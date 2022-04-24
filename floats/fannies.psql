@@ -2,6 +2,43 @@
 
 -- so this is just a temp table so I can see how much original face each pool lost 
 
+    -- 
+    CREATE TEMP TABLE poolofinplats AS
+    SELECT 
+        poolcusip,
+        SUM(ofinplat) AS ofinplat
+    FROM platinums
+    GROUP BY poolcusip;
+
+
+    CREATE TEMP TABLE currfanniebodies AS
+    SELECT 
+        fanniebodies.cusip,
+        fanniebodies.remainingbalance / fannies.originalface AS factor,
+        fanniebodies.date 
+    FROM fanniebodies
+    INNER JOIN fannies
+    ON fanniebodies.cusip = fannies.cusip
+    WHERE date = '2022-02-01';
+
+    CREATE TEMP TABLE currfaceinplat AS
+    SELECT 
+        currfanniebodies.cusip,
+        poolofinplats.ofinplat,
+        poolofinplats.ofinplat * currfanniebodies.factor AS currfaceinplat,
+        currfanniebodies.date
+    FROM currfanniebodies
+    INNER JOIN poolofinplats
+    ON currfanniebodies.cusip = poolofinplats.poolcusip;
+
+    UPDATE fanniebodies
+    SET cfinplats = currfaceinplat.currfaceinplat
+    FROM currfaceinplat
+    WHERE fanniebodies.cusip = currfaceinplat.cusip
+    AND fanniebodies.date = currfaceinplat.date;
+
+
+
 create or replace PROCEDURE fanniesfloat( fanniebodiesdate DATE )
 language plpgsql
 as
@@ -9,7 +46,7 @@ $$
 declare
 begin
 
-    DROP TABLE IF EXISTS poolofinplats, currentfreddiebodies;
+    DROP TABLE IF EXISTS poolofinplats, currfanniebodies, currfaceinplat;
 
     CREATE TEMP TABLE poolofinplats AS
     SELECT 
@@ -20,22 +57,32 @@ begin
 
 
     CREATE TEMP TABLE currfanniebodies AS
-    SELECT * 
+    SELECT 
+        fanniebodies.cusip,
+        fanniebodies.remainingbalance / fannies.originalface AS factor,
+        fanniebodies.date 
     FROM fanniebodies
+    INNER JOIN fannies
+    ON fanniebodies.cusip = fannies.cusip
     WHERE date = fanniebodiesdate;
 
-    INSERT INTO fannieofinplat (cusip, ofinplat, currfaceinplat, fanniefloat, date)
+    CREATE TEMP TABLE currfaceinplat AS
     SELECT 
         currfanniebodies.cusip,
         poolofinplats.ofinplat,
         poolofinplats.ofinplat * currfanniebodies.factor AS currfaceinplat,
-        currfanniebodies.remainingbalance - (poolofinplats.ofinplat * currfanniebodies.factor) AS float,
         currfanniebodies.date
     FROM currfanniebodies
     INNER JOIN poolofinplats
     ON currfanniebodies.cusip = poolofinplats.poolcusip;
 
-    DROP TABLE IF EXISTS poolofinplats, currentfreddiebodies;
+    UPDATE fanniebodies
+    SET cfinplats = currfaceinplat.currfaceinplat
+    FROM currfaceinplat
+    WHERE fanniebodies.cusip = currfaceinplat.cusip
+    AND fanniebodies.date = currfaceinplat.date;
+
+    DROP TABLE IF EXISTS poolofinplats, currfanniebodies, currfaceinplat;
 
     end;
 
@@ -48,11 +95,19 @@ CALL fanniesfloat('2022-02-01');
 
 
 
+-- some tests
+fannies=# SELECT COUNT(*) FROM fanniebodies where remainingbalance < cfinplats;
+ count
+-------
+ 10823
 
 
 
-
-
+fannies=# SELECT * FROM fanniebodies where cfinplats is not null limit 2;
+   cusip   | coupon | remainingbalance |   factor   | gwac | wam | wala |    date    | cfincmos |     cfinplats
+-----------+--------+------------------+------------+------+-----+------+------------+----------+-------------------
+ 31401AB30 |      6 |         69575.08 | 0.00661333 |  6.5 |  72 |  227 | 2022-02-01 |          | 69052.25023329072
+ 31400DBZ4 |      6 |                0 |          0 |      |     |      | 2022-02-01 |          |                 0
 
 
 

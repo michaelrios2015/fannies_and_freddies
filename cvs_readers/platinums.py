@@ -14,6 +14,8 @@ data_path = ['cvs_readers/data/input/collateral_items_giant_FHR.csv',
              'cvs_readers\data\input\collateral_items_super_FHR.csv',
              'cvs_readers\data\input\collateral_items_super_FNM.csv']
 
+# data_path = ['cvs_readers/data/input/collateral_items_giant_FHR.csv']
+
 date = '2021-06-01'
 
 ####################################################################

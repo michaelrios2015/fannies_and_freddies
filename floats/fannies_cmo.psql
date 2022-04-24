@@ -2,11 +2,10 @@
 --  so this works but I want to use it to update the fannie... so need to figure that out
 -- should not be terribly hard yeah because that is what I am doing in the other one as well
 
--- CREATE TEMP TABLE poolofincmos AS
+CREATE TEMP TABLE poolofincmos AS
 SELECT 
     cusip,
     SUM(faceincmo) AS faceincmo
-INTO TEMP TABLE poolofincmos
 FROM ofincmos
 GROUP BY cusip;
 
@@ -136,3 +135,69 @@ fanniescmocurrentface( fanniebodiesdate DATE )
 
 CALL fanniescmocurrentface('2022-02-01');
 
+
+
+-----------------------------------------------------------------------------
+
+-- checking how original face in cmos work 
+
+CREATE TEMP TABLE poolofincmos AS
+SELECT 
+    cusip,
+    SUM(faceincmo) AS faceincmo
+FROM ofincmos
+GROUP BY cusip;
+
+SELECT *
+FROM poolofincmos
+INNER JOIN ecs 
+ON poolofincmos.cusip = ecs.fdonecusip
+LIMIT 5;
+
+   cusip   | faceincmo | fdonename | fdonecusip | fdtwoname | fdtwocusip | exchangeable | exchanged |    date
+-----------+-----------+-----------+------------+-----------+------------+--------------+-----------+------------
+ 31287LTQ5 | 175755296 | C61459    | 31287LTQ5  | ZJ5534    | 3131WWEF7  |    205416624 |         0 | 2022-02-03
+ 3129437E7 |   2000000 | A95393    | 3129437E7  | ZJ0789    | 3131WQ2W6  |     77961975 |  29166910 | 2022-02-03
+ 31297DT32 |  18709922 | A25970    | 31297DT32  | ZI2439    | 3131WEV84  |     48242664 |         0 | 2022-02-03
+ 31298JLY8 |  73086626 | C49343    | 31298JLY8  | ZJ4947    | 3131WVP83  |     79336826 |    250200 | 2022-02-03
+ 312933W42 |    955157 | A86967    | 312933W42  | ZI8893    | 3131WM3A2  |    285458018 |   2558111 | 2022-02-03
+
+SELECT * FROM poolofincmos where cusip ='3131WM3A2';
+
+   cusip   | faceincmo
+-----------+-----------
+ 3131WM3A2 |     39240
+
+-- So here it looks like they each have their own original face in cmo
+ 31298JLY8 |  73086626 | C49343    | 31298JLY8  | ZJ4947    | 3131WVP83  |     79336826 |    250200 | 2022-02-03
+
+
+
+SELECT *
+FROM poolofincmos
+INNER JOIN ecs 
+ON poolofincmos.cusip = ecs.fdonecusip
+WHERE faceincmo = exchangeable
+AND exchanged > 0
+LIMIT 5;
+
+   cusip   | faceincmo | fdonename | fdonecusip | fdtwoname | fdtwocusip | exchangeable | exchanged |    date
+-----------+-----------+-----------+------------+-----------+------------+--------------+-----------+------------
+ 3132Y3YG3 |   1673251 | Q59710    | 3132Y3YG3  | ZN1356    | 3131Y7QH3  |      1673251 |         0 | 2022-02-03
+ 3132LAMS8 | 157696413 | V84869    | 3132LAMS8  | ZA5916    | 31329PSD6  |    157696413 |         0 | 2022-02-03
+ 3132VPDK1 |   1016520 | Q62805    | 3132VPDK1  | ZN4756    | 3131YBH92  |      1016520 |         0 | 2022-02-03
+ 3132VNFX6 |   1499686 | Q61981    | 3132VNFX6  | ZN4007    | 3131YANY2  |      1499686 |         0 | 2022-02-03
+ 3128KCLJ4 |  74900794 | A50329    | 3128KCLJ4  | ZI5035    | 3131WHSY4  |     74900794 |         0 | 2022-02-03
+
+ fannies=# SELECT *
+fannies-# FROM poolofincmos
+fannies-# INNER JOIN ecs
+fannies-# ON poolofincmos.cusip = ecs.fdonecusip
+fannies-# WHERE faceincmo = exchangeable
+fannies-# AND exchanged > 0
+fannies-# LIMIT 5;
+ cusip | faceincmo | fdonename | fdonecusip | fdtwoname | fdtwocusip | exchangeable | exchanged | date
+-------+-----------+-----------+------------+-----------+------------+--------------+-----------+------
+(0 rows)
+
+-- so maybe for the cmos they just come out of both individually?? 
