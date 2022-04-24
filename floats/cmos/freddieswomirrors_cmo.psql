@@ -1,0 +1,172 @@
+
+    -- the ratios
+    -- CREATE TEMP TABLE ratios AS
+    -- SELECT 
+    --     freddies.cusip,
+    --     freddieswithoutmirrors.originalface/freddies.originalface AS ofratio 
+    -- FROM freddies
+    -- INNER JOIN freddieswithoutmirrors
+    -- ON freddies.cusip = freddieswithoutmirrors.cusip
+    -- WHERE ecdate = '2022-02-03';
+
+
+
+    CREATE TEMP TABLE currfreddiebodiesstepone AS
+    SELECT * 
+    FROM freddiebodieswomirrors
+    WHERE date = '2022-02-04'
+    and ecdate = '2022-02-03';
+
+CREATE TEMP TABLE currfreddiebodies AS
+SELECT
+    currfreddiebodiesstepone.cusip,
+    currfreddiebodiesstepone.remainingbalance,
+    CASE  
+        WHEN freddieswithoutmirrors.originalface > 0 THEN currfreddiebodiesstepone.remainingbalance / freddieswithoutmirrors.originalface 
+        ELSE 0
+    END
+    AS factor, 
+    currfreddiebodiesstepone.date,
+    currfreddiebodiesstepone.ecdate 
+FROM currfreddiebodiesstepone
+INNER JOIN freddieswithoutmirrors
+ON currfreddiebodiesstepone.cusip = freddieswithoutmirrors.cusip
+AND currfreddiebodiesstepone.ecdate = freddieswithoutmirrors.ecdate;
+
+
+    -- CREATE TEMP TABLE currfreddiebodies AS
+    -- SELECT
+    --     currfreddiebodies.cusip,
+    --     currfreddiebodies.remainingbalance,
+    --     currfreddiebodies.factor,
+    --     currfreddiebodies.date,
+    --     currfreddiebodies.ecdate,
+    --     ratios.ofratio
+    -- FROM currfreddiebodies
+    -- INNER JOIN ratios
+    -- ON currfreddiebodies.cusip = ratios.cusip;
+    
+
+    CREATE TEMP TABLE poolofincmos AS
+    SELECT 
+        cusip,
+        SUM(faceincmo) AS faceincmo
+    FROM ofincmos
+    GROUP BY cusip;
+
+    CREATE TEMP TABLE cfincmos AS
+    SELECT
+        -- *,
+        currfreddiebodies.cusip,
+        -- poolofincmos.faceincmo * currfreddiebodies.ofratio AS adjustedofincmo,
+        poolofincmos.faceincmo * currfreddiebodies.factor AS currfaceincmo,
+        currfreddiebodies.remainingbalance - ( poolofincmos.faceincmo * currfreddiebodies.factor) AS float,
+        currfreddiebodies.date,
+        currfreddiebodies.ecdate
+    FROM currfreddiebodies
+    INNER JOIN poolofincmos
+    ON currfreddiebodies.cusip = poolofincmos.cusip;
+    -- LIMIT 5;
+
+-- so i get some with negative float 
+fannies=# SELECT COUNT(*) FROM cfincmos where float < 0;
+ count
+-------
+  2589
+(1 row)
+
+-- but none more than a dollar so we should be good 
+
+-- added a column to fannie mirror bodies then update
+    UPDATE freddiebodieswomirrors
+    SET cfincmos = cfincmos.currfaceincmo
+    FROM cfincmos
+    WHERE freddiebodieswomirrors.cusip = cfincmos.cusip
+    AND freddiebodieswomirrors.date = cfincmos.date
+    AND freddiebodieswomirrors.ecdate = cfincmos.ecdate;
+
+
+-- seems to work 
+
+   cusip   | coupon | remainingbalance |       factor        | gwac  | wam | wala |    date    |   ecdate   |      cfincmos      |     cfinplats
+-----------+--------+------------------+---------------------+-------+-----+------+------------+------------+--------------------+--------------------
+ 3132GDRZ7 |    4.5 |        506777.28 |          0.07614185 | 4.805 | 209 |  129 | 2022-02-04 | 2022-02-03 | 263005.96420064603 | 243771.31579935394
+ 3132H9CZ1 |    2.5 |        983148.63 | 0.10508636568909079 | 3.416 |  62 |  113 | 2022-02-04 | 2022-02-03 |  960829.0215321969 |          983148.63
+ 31281ARA2 |      6 |         49498.72 |          0.00765702 | 6.375 |  65 |  284 | 2022-02-04 | 2022-02-03 |           49498.72 |
+ 31281ATE2 |      6 |         51688.57 |          0.00917293 | 6.625 |  85 |  273 | 2022-02-04 | 2022-02-03 |           51688.57 |
+ 31281BCM0 |      5 |        277717.06 |          0.00875062 | 5.375 | 133 |  226 | 2022-02-04 | 2022-02-03 |          277717.06 |
+(5 rows)
+
+
+-- how we did it for the freddies with platinums will modify for cmos
+
+create or replace PROCEDURE freddiescurrentfaceincmo( freddiesdate DATE, ecsdate DATE )
+language plpgsql
+as
+$$
+declare
+begin
+
+    DROP TABLE IF EXISTS currfreddiebodiesstepone, 
+        currfreddiebodies, poolofincmos, cfincmos;
+
+    CREATE TEMP TABLE currfreddiebodiesstepone AS
+    SELECT * 
+    FROM freddiebodieswomirrors
+    WHERE date = freddiesdate
+    and ecdate = ecsdate;
+
+    CREATE TEMP TABLE currfreddiebodies AS
+    SELECT
+    currfreddiebodiesstepone.cusip,
+    currfreddiebodiesstepone.remainingbalance,
+    CASE  
+        WHEN freddieswithoutmirrors.originalface > 0 THEN currfreddiebodiesstepone.remainingbalance / freddieswithoutmirrors.originalface 
+        ELSE 0
+    END
+    AS factor, 
+    currfreddiebodiesstepone.date,
+    currfreddiebodiesstepone.ecdate 
+    FROM currfreddiebodiesstepone
+    INNER JOIN freddieswithoutmirrors
+    ON currfreddiebodiesstepone.cusip = freddieswithoutmirrors.cusip
+    AND currfreddiebodiesstepone.ecdate = freddieswithoutmirrors.ecdate;
+  
+    CREATE TEMP TABLE poolofincmos AS
+    SELECT 
+        cusip,
+        SUM(faceincmo) AS faceincmo
+    FROM ofincmos
+    GROUP BY cusip;
+
+    CREATE TEMP TABLE cfincmos AS
+    SELECT
+        currfreddiebodies.cusip,
+        poolofincmos.faceincmo * currfreddiebodies.factor AS currfaceincmo,
+        currfreddiebodies.remainingbalance - (poolofincmos.faceincmo * currfreddiebodies.factor) AS float,
+        currfreddiebodies.date,
+        currfreddiebodies.ecdate
+    FROM currfreddiebodies
+    INNER JOIN poolofincmos
+    ON currfreddiebodies.cusip = poolofincmos.cusip;
+
+    UPDATE freddiebodieswomirrors
+    SET cfincmos = cfincmos.currfaceincmo
+    FROM cfincmos
+    WHERE freddiebodieswomirrors.cusip = cfincmos.cusip
+    AND freddiebodieswomirrors.date = cfincmos.date
+    AND freddiebodieswomirrors.ecdate = cfincmos.ecdate;
+
+    DROP TABLE IF EXISTS ratios, currfreddiebodiesstepone, 
+        currfreddiebodies, currfreddiebodies, poolofincmos, cfincmos;
+
+    end;
+
+$$;
+
+freddiescurrentfaceincmo( freddiesdate DATE, ecsdate DATE )
+
+CALL freddiescurrentfaceincmo( '2022-02-04', '2022-02-03' );
+
+-- seems good just roundng errors
+ SELECT COUNT(*) FROM freddiebodieswomirrors where remainingbalance < cfincmos;

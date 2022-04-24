@@ -1,0 +1,188 @@
+-- so here i was just tryong to get the ratio of originalface in mirror / originla face before mirror
+-- seems ok need to and ecdat to my last one and recheck it
+-- CREATE TEMP TABLE ratios AS
+-- SELECT
+--     freddies.cusip,
+--     fanniemirrors.originalface/freddies.originalface AS ofratio 
+-- INTO TEMP TABLE ratios
+-- FROM freddies
+-- INNER JOIN fanniemirrors
+-- ON freddies.cusip = fanniemirrors.cusip
+-- WHERE ecdate = '2022-02-03';
+
+
+-- getting the fannie mirror bodies, ok here I put in both dates 
+-- CREATE TEMP TABLE currfanniebodies AS
+SELECT * 
+INTO TEMP TABLE currfanniebodiesstepone
+FROM fanniemirrorbodies
+WHERE date = '2022-02-04'
+and ecdate = '2022-02-03';
+
+SELECT 
+    currfanniebodiesstepone.cusip,
+    currfanniebodiesstepone.remainingbalance,
+    CASE  
+        WHEN fanniemirrors.originalface > 0 THEN currfanniebodiesstepone.remainingbalance / fanniemirrors.originalface 
+        ELSE 0
+    END
+    AS factor, 
+    currfanniebodiesstepone.date,
+    currfanniebodiesstepone.ecdate 
+INTO TEMP TABLE currfanniebodies
+FROM currfanniebodiesstepone
+INNER JOIN fanniemirrors
+ON currfanniebodiesstepone.cusip = fanniemirrors.cusip
+AND currfanniebodiesstepone.ecdate = fanniemirrors.ecdate;
+
+
+-- so just adding the ratio to the bodies
+-- CREATE TEMP TABLE currfanniebodieswratio AS
+-- SELECT
+--     currfanniebodies.cusip,
+--     currfanniebodies.remainingbalance,
+--     currfanniebodies.factor,
+--     currfanniebodies.date,
+--     currfanniebodies.ecdate,
+--     ratios.ofratio
+-- FROM currfanniebodies
+-- INNER JOIN ratios
+-- ON currfanniebodies.cusip = ratios.cusip;
+
+
+CREATE TEMP TABLE poolofincmos AS
+SELECT 
+    cusip,
+    SUM(faceincmo) AS faceincmo
+FROM ofincmos
+GROUP BY cusip;
+
+
+-- so we calcute the current face in cmos
+-- CREATE TEMP TABLE cfincmos AS
+SELECT
+    *,
+    currfanniebodies.cusip,
+    poolofincmos.faceincmo,
+    -- poolofincmos.faceincmo * currfanniebodies.ofratio AS adjustedofincmo,
+    poolofincmos.faceincmo * currfanniebodies.factor AS currfaceincmo,
+    currfanniebodies.remainingbalance - ( poolofincmos.faceincmo  * currfanniebodies.factor) AS float,
+    currfanniebodies.date,
+    currfanniebodies.ecdate
+FROM currfanniebodies
+INNER JOIN poolofincmos
+ON currfanniebodies.cusip = poolofincmos.cusip
+LIMIT 5;
+-- WHERE currfanniebodies.remainingbalance - ( (poolofincmos.faceincmo * currfanniebodies.ofratio) * currfanniebodies.factor) < 0
+-- AND faceincmo > (poolofincmos.faceincmo * currfanniebodies.ofratio )
+-- AND remainingbalance > 0
+-- LIMIT 5;
+
+-- just testing 
+-- SELECT *
+-- FROM cfincmos
+-- WHERE float < 0
+-- AND faceincmo > adjustedofincmo
+-- LIMIT 5;
+
+-- need to add a column to fannie mirror bodies then update
+    UPDATE fanniemirrorbodies
+    SET cfincmos = cfincmos.currfaceincmo
+    FROM cfincmos
+    WHERE fanniemirrorbodies.cusip = cfincmos.cusip
+    AND fanniemirrorbodies.date = cfincmos.date
+    AND fanniemirrorbodies.ecdate = cfincmos.ecdate;
+
+
+------------------------------------------------------------------------------------------------
+
+create or replace PROCEDURE fanniemirrorscfincmo( fanniesdate DATE, ecsdate DATE )
+language plpgsql
+as
+$$
+declare
+begin
+
+    DROP TABLE IF EXISTS currfanniebodiesstepone, 
+        currfanniebodies, poolofincmos, cfincmos;
+
+    -- the fannie mirror bodies we want 
+    CREATE TEMP TABLE currfanniebodiesstepone AS
+    SELECT * 
+    FROM fanniemirrorbodies
+    WHERE date = fanniesdate
+    and ecdate = ecsdate;
+
+    -- calcute factor on our own
+    CREATE TEMP TABLE currfanniebodies AS
+    SELECT 
+        currfanniebodiesstepone.cusip,
+        currfanniebodiesstepone.remainingbalance,
+        CASE  
+            WHEN fanniemirrors.originalface > 0 THEN currfanniebodiesstepone.remainingbalance / fanniemirrors.originalface 
+            ELSE 0
+        END
+        AS factor, 
+        currfanniebodiesstepone.date,
+        currfanniebodiesstepone.ecdate 
+    FROM currfanniebodiesstepone
+    INNER JOIN fanniemirrors
+    ON currfanniebodiesstepone.cusip = fanniemirrors.cusip
+    AND currfanniebodiesstepone.ecdate = fanniemirrors.ecdate;
+
+    -- original face in summed by pool cusip 
+    CREATE TEMP TABLE poolofincmos AS
+    SELECT 
+        cusip,
+        SUM(faceincmo) AS faceincmo
+    FROM ofincmos
+    GROUP BY cusip;
+
+    -- calculate the current face in cmos 
+    CREATE TEMP TABLE cfincmos AS
+    SELECT
+        currfanniebodies.cusip,
+        poolofincmos.faceincmo,
+        poolofincmos.faceincmo * currfanniebodies.factor AS currfaceincmo,
+        currfanniebodies.remainingbalance - ( poolofincmos.faceincmo * currfanniebodies.factor) AS float,
+        currfanniebodies.date,
+        currfanniebodies.ecdate
+    FROM currfanniebodies
+    LEFT JOIN poolofincmos
+    ON currfanniebodies.cusip = poolofincmos.cusip;
+
+    -- put it in mirrors
+    UPDATE fanniemirrorbodies
+    SET cfincmos = cfincmos.currfaceincmo
+    FROM cfincmos
+    WHERE fanniemirrorbodies.cusip = cfincmos.cusip
+    AND fanniemirrorbodies.date = cfincmos.date
+    AND fanniemirrorbodies.ecdate = cfincmos.ecdate;
+
+    DROP TABLE IF EXISTS currfanniebodiesstepone, 
+        currfanniebodies, poolofincmos, cfincmos;
+
+    end;
+
+$$;
+
+
+fanniemirrorscfincmo( fanniesdate DATE, ecsdate DATE )
+
+CALL fanniemirrorscfincmo( '2022-02-04', '2022-02-03' );
+
+
+fannies-# LIMIT 5;
+   cusip   |  remainingbalance  |        factor        |    date    |   ecdate   |   cusip   | faceincmo |   cusip   | faceincmo |   currfaceincmo    |       float        |    date    |   ecdate
+-----------+--------------------+----------------------+------------+------------+-----------+-----------+-----------+-----------+--------------------+--------------------+------------+------------
+ 3131WC2F4 |  282716.5831185895 |  0.03423350959088566 | 2022-02-04 | 2022-02-03 | 3131WC2F4 |   8258475 | 3131WC2F4 |   8258475 |  282716.5831185895 |                  0 | 2022-02-04 | 2022-02-03
+ 3131WC4W5 |  92410.96817552538 | 0.024543937510564162 | 2022-02-04 | 2022-02-03 | 3131WC4W5 |   3765124 | 3131WC4W5 |   3765124 |  92410.96817552538 |                  0 | 2022-02-04 | 2022-02-03
+ 3131WCMH8 |  26867.08866496129 | 0.013417188779358607 | 2022-02-04 | 2022-02-03 | 3131WCMH8 |   2002438 | 3131WCMH8 |   2002438 |  26867.08866496129 |                  0 | 2022-02-04 | 2022-02-03
+ 3131WCNP9 | 137701.54108387878 | 0.026397431423303818 | 2022-02-04 | 2022-02-03 | 3131WCNP9 |   5216475 | 3131WCNP9 |   5216475 | 137701.54108387878 |                  0 | 2022-02-04 | 2022-02-03
+ 3131WCQY7 |  157729.7713174382 | 0.025337627438095683 | 2022-02-04 | 2022-02-03 | 3131WCQY7 |   1110000 | 3131WCQY7 |   1110000 |  28124.76645628621 | 129605.00486115199 | 2022-02-04 | 2022-02-03
+
+-- we seem to only be getting rounding errors here :) 
+ SELECT * 
+ FROM fanniemirrorbodies
+ WHERE remainingbalance < cfincmos
+ LIMIT 5; 
