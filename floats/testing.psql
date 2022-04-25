@@ -1,0 +1,124 @@
+Select 
+    SUM(remainingbalance)/1000000 AS current_face, 
+    SUM(cfincmos)/1000000 AS cfincmos,
+    SUM(cfinplats)/1000000 AS cfinplats,
+    SUM(remainingbalance)/1000000 - SUM(cfincmos)/1000000 - SUM(cfinplats)/1000000 AS float
+FROM fanniebodies
+INNER JOIN fannies
+ON  fanniebodies.cusip = fannies.cusip
+WHERE coupon = 2
+AND istbaelig = '30 year'
+AND date = '2022-02-01';
+
+   current_face    |     cfincmos      |     cfinplats     |       float
+-------------------+-------------------+-------------------+-------------------
+ 993756.6332975999 | 15640.94678593989 | 29631.57776181641 | 948484.1087498436
+
+-- forgot to make it only 30 years here
+
+-- limit 1;
+   current_face    |     cfincmos      |     cfinplats     |       float
+-------------------+-------------------+-------------------+-------------------
+ 1274201.786416302 | 24703.69947375221 | 48586.89968229185 | 1200911.187260258
+
+SELECT * 
+FROM fanniebodies
+INNER JOIN fannies
+ON  fanniebodies.cusip = fannies.cusip
+WHERE coupon = 2
+AND istbaelig = '30 year'
+AND date = '2022-02-01'
+LIMIT 2;
+
+
+Select 
+    SUM(remainingbalance)/1000000 AS current_face, 
+    SUM(cfincmos)/1000000 AS cfincmos,
+    SUM(cfinplats)/1000000 AS cfinplats,
+    SUM(remainingbalance)/1000000 - SUM(cfincmos)/1000000 - SUM(cfinplats)/1000000 AS float
+FROM fanniebodies
+INNER JOIN fannies
+ON  fanniebodies.cusip = fannies.cusip
+WHERE coupon = 2
+-- AND istbaelig = '30 year'
+AND date = '2022-02-01';
+
+    current_face    |     cfincmos      |     cfinplats      |       float
+--------------------+-------------------+--------------------+--------------------
+ 1274201.7864163097 | 24703.69947375221 | 48586.899682291856 | 1200911.1872602657
+
+
+
+
+
+SELECT * FROM fanniemirrorbodies LIMIT 1;
+
+ Select 
+    SUM(remainingbalance)/1000000 AS current_face, 
+    SUM(COALESCE(cfincmos, 0))/1000000 AS cfincmos,
+    SUM(COALESCE(cfinplats, 0))/1000000 AS cfinplats,
+    SUM(remainingbalance)/1000000 - COALESCE(SUM(cfincmos)/1000000, 0) - COALESCE(SUM(cfinplats)/1000000, 0) AS float
+FROM fanniemirrorbodies
+-- INNER JOIN freddies
+-- ON fanniemirrorbodies.cusip = freddies.cusip 
+INNER JOIN fanniemirrors
+ON fanniemirrorbodies.cusip = fanniemirrors.cusip 
+WHERE coupon = 2
+AND date = '2022-02-04'
+AND fanniemirrorbodies.ecdate = '2022-02-03'
+AND istbaelig = '30 year';
+
+
+    current_face    | cfincmos |     cfinplats      |       float
+--------------------+----------+--------------------+--------------------
+ 2.6517660100000002 |        0 | 0.7929727099999999 | 1.8587933000000003
+
+-- when not limited to 30 year 
+
+    current_face    | cfincmos |     cfinplats     |       float
+--------------------+----------+-------------------+-------------------
+ 1030.7108899437494 |          | 93.35509669763402 | 937.3557932461154
+
+----------------------------------
+
+ Select 
+    SUM(remainingbalance)/1000000 AS current_face, 
+    SUM(COALESCE(cfincmos, 0))/1000000 AS cfincmos,
+    SUM(COALESCE(cfinplats, 0))/1000000 AS cfinplats,
+    SUM(remainingbalance)/1000000 - COALESCE(SUM(cfincmos)/1000000, 0) - COALESCE(SUM(cfinplats)/1000000, 0) AS float
+FROM fanniemirrorbodies
+-- INNER JOIN freddies
+-- ON fanniemirrorbodies.cusip = freddies.cusip 
+INNER JOIN fanniemirrors
+ON fanniemirrorbodies.cusip = fanniemirrors.cusip 
+WHERE coupon = 2
+AND date = '2022-02-04'
+AND fanniemirrorbodies.ecdate = '2022-02-03';
+-- AND istbaelig = '30 year';
+
+
+  Select 
+    SUM(remainingbalance)/1000000 AS current_face, 
+    SUM(COALESCE(cfincmos, 0))/1000000 AS cfincmos,
+    SUM(COALESCE(cfinplats, 0))/1000000 AS cfinplats,
+    SUM(remainingbalance)/1000000 - COALESCE(SUM(cfincmos)/1000000, 0) - COALESCE(SUM(cfinplats)/1000000, 0) AS float
+FROM freddiebodieswomirrors
+-- INNER JOIN freddieswithoutmirrors
+-- ON freddiebodieswomirrors.cusip = freddieswithoutmirrors.cusip
+INNER JOIN freddies
+ON freddiebodieswomirrors.cusip = freddies.cusip
+WHERE coupon = 2
+AND date = '2022-02-04'
+AND freddiebodieswomirrors.ecdate = '2022-02-03'
+AND istbaelig = '30 year';
+
+
+    current_face    |     cfincmos      |     cfinplats      |       float
+--------------------+-------------------+--------------------+--------------------
+ 1374404.0899346892 | 11800.54510896989 | 332723.67113997665 | 1029879.8736857427
+
+--  
+
+    current_face    |      cfincmos      |     cfinplats      |       float
+--------------------+--------------------+--------------------+-------------------
+ 1647604.8267090865 | 29318.766648044693 | 407872.30088864954 | 1210413.759172392
