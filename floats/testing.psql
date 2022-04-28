@@ -1,3 +1,120 @@
+-- 4/27/22
+
+Prefix|Security Identifier|CUSIP|Security Factor Date|Security Factor|Payment Delay Days|Security Data Correction Indicator|Security Status Indicator|Security Notification Indicator|Security Description|Issuer|Issue Date|Maturity Date|Updated Longest Maturity Date|Issuance Investor Security UPB|Current Investor Security UPB|WA Net Interest Rate|WA Issuance Interest Rate|WA Current Interest Rate|WA Net Accrual Interest Rate|WA Loan Term|WA Issuance Remaining Months to Maturity|WA Current Remaining Months to Maturity|WA Loan Age|WA Mortgage Loan Amount|Average Mortgage Loan Amount|WA Loan-To-Value (LTV)|WA Combined Loan-To-Value (CLTV)|WA Debt-To-Income (DTI)|WA Borrower Credit Score|Filler|Filler|Loan Count|Third Party Origination UPB Percent|Seller Name|Seller City|Seller State|Servicer Name|Servicer City|Servicer State|Delinquent Loans Purchased (Prior Month UPB)|Delinquent Loans Purchased (Loan Count)|Eligible for Resecuritization|Notes|Notes Ongoing|Interest Only Security Indicator|WA Months to Amortization|Prepayment Penalty Indicator|Reduced Minimum Servicing Indicator|Subtype|Index|WA Mortgage Margin|WA MBS PC Margin|Interest Rate Adjustment Frequency|Interest Rate Lookback|Payment Adjustment Frequency|Payment Lookback|Convertibility Indicator|Negative Amortization Indicator|Negative Amortization Factor|WA Negative Amortization Limit|Initial Fixed Rate Period|First Rate Adjustment Date|First Payment Adjustment Date|WA Months to Next Rate Adjustment Date|WA Life Interest Rate Ceiling|WA Net Life Interest Rate Ceiling|WA Life Interest Rate Floor|WA Net Life Interest Rate Floor|Initial Interest Rate Cap Up %|Initial Interest Rate Cap Down %|Periodic Interest Rate Cap Up %|Periodic Interest Rate Cap Down %|Initial Step Fixed-Rate Period|Step Rate Adjustment Frequency|Next Step Rate Adjustment Date|WA Months to Next Step Rate Adjustment|Periodic Step Rate Cap Up %|WA Origination Mortgage Loan Amount|Average Origination Mortgage Loan Amount|WA Origination Interest Rate|WA Origination Loan Term|WA Origination Loan-To-Value (LTV)|WA Origination Combined Loan-To-Value (CLTV)|WA Origination Debt-To-Income (DTI)|WA Origination Credit Score|Filler|Filler|Origination Third Party Origination UPB Percent|WA Estimated Loan-To-Value (ELTV)|WA Updated Credit Score
+AS|004569|31360FCE3|042022|0.00023199|55|N|A|7|FNAR XX.XXX AS004569|FNM|07011984|112023|112023|26260359.00|6092.21|5.926|12.176|6.875|5.926|480|381|19|461|63000.00|63000.00|||||||1||WASHINGTON MUTUAL BANK, FA|||JPMORGAN CHASE BANK, NATIONAL ASSOCIATION|COLUMBUS|OH|0.00|0|Y||In connection with the COFI index retirement, Fannie Mae has updated the Index from the FHLBB 11th District Cost of Funds (Monthly Avg) to the Enterprise 11th District COFI Replacement Index Formerly 11th District COFI - Transition Feb2022.|N||N|N|1A F|021|2.199|1.250|1|15|12|0|N|Y|0.00000000|999.999|00|051984|121984|1|16.875|15.926|6.875|5.926|77.777|77.777|77.777|77.777||||||||||||||||||
+
+
+
+ CREATE TEMP TABLE IF NOT EXISTS cusips (
+    cusip VARCHAR PRIMARY KEY
+);
+
+\copy cusips FROM 'C:/Users/micha/Downloads/cusips.csv' DELIMITER ',' CSV 
+
+Select
+    fannies.cusip,
+    fannies.indicator,
+    fannies.issuedate,
+    fannies.maturitydate,
+    fannies.originalface,
+    fannies.istbaelig,
+    fanniebodies.coupon,
+    fanniebodies.remainingbalance,
+    fanniebodies.factor
+INTO TEMP TABLE thirtyyr
+FROM fanniebodies
+INNER JOIN fannies
+ON  fanniebodies.cusip = fannies.cusip
+WHERE coupon = 1.5
+AND istbaelig = '30 year'
+AND date = '2022-04-01';
+
+SELECT 
+    COUNT(*)
+FROM thirtyyr
+INNER JOIN cusips
+ON thirtyyr.cusip = cusips.cusip;
+
+-- so all their cusips are in mine
+
+SELECT 
+    *,
+    maturitydate - issuedate
+FROM thirtyyr
+INNER JOIN cusips
+ON thirtyyr.cusip = cusips.cusip
+ORDER BY maturitydate - issuedate DESC
+LIMIT 10;
+
+(CAST(MAX(maturitydate) AS date) - CAST(MIN(issuedate) AS date)) 
+
+SELECT 
+    (ST(maturitydate) AS date) - CAST(MIN(issuedate) AS date))
+FROM thirtyyr
+INNER JOIN cusips
+ON thirtyyr.cusip = cusips.cusip
+ORDER BY issuedate DESC
+LIMIT 10;
+
+
+
+SELECT 
+    *,
+    maturitydate - issuedate
+FROM thirtyyr
+LEFT JOIN cusips
+ON thirtyyr.cusip = cusips.cusip
+WHERE cusips.cusip IS NULL
+ORDER BY maturitydate - issuedate DESC
+LIMIT 10
+;
+
+-- Ten that they say are not 30 year 
+
+   cusip   | indicator | issuedate  | maturitydate | originalface | istbaelig | coupon | remainingbalance |   factor   | cusip
+-----------+-----------+------------+--------------+--------------+-----------+--------+------------------+------------+-------
+ 3140X7HE2 | CL        | 2020-07-01 | 2050-08-01   |     84953407 | 30 year   |    1.5 |      72444728.47 | 0.85275837 |
+ 3140X7N47 | CT        | 2020-08-01 | 2040-08-01   |     25214561 | 30 year   |    1.5 |      18979125.93 | 0.75270499 |
+ 3140X7VF3 | CT        | 2020-08-01 | 2040-09-01   |     43530686 | 30 year   |    1.5 |      31141853.11 | 0.71540001 |
+ 3140X7W54 | CT        | 2020-09-01 | 2040-09-01   |     19751498 | 30 year   |    1.5 |      12571976.27 | 0.63650748 |
+ 3140X7W96 | CL        | 2020-09-01 | 2050-09-01   |     63870710 | 30 year   |    1.5 |      56584821.69 | 0.88592755 |
+ 3140X7ZR3 | CL        | 2020-09-01 | 2050-09-01   |     25000000 | 30 year   |    1.5 |      23474815.32 | 0.93899261 |
+ 3140X75F2 | CL        | 2020-09-01 | 2050-10-01   |     35909428 | 30 year   |    1.5 |       32260014.6 | 0.89837172 |
+ 3140X75H8 | CT        | 2020-09-01 | 2040-09-01   |     12911064 | 30 year   |    1.5 |       7907562.43 | 0.61246404 |
+ 3140X8AL1 | CL        | 2020-10-01 | 2050-10-01   |     67804134 | 30 year   |    1.5 |      60254712.09 | 0.88865838 |
+ 3140X8AQ0 | CL        | 2020-10-01 | 2050-10-01   |     40015715 | 30 year   |    1.5 |      35813938.12 | 0.89499683 |
+(10 rows)
+
+-- 2926 all 1.5 coupon 
+
+--  921 1.5 coupon and 30 year
+
+
+Select 
+    SUM(originalface)/1000000 AS original_face,
+    SUM(remainingbalance)/1000000 AS current_face
+FROM fanniebodies
+INNER JOIN fannies
+ON  fanniebodies.cusip = fannies.cusip
+WHERE coupon = 1.5
+AND istbaelig = '30 year'
+AND date = '2022-04-01';
+
+
+-- 1.5
+ original_face |    current_face
+---------------+--------------------
+ 287059.822247 | 255298.28385154996
+
+
+-- 1.5 and 30year 
+ original_face |    current_face
+---------------+--------------------
+ 130800.988761 | 119097.73731987998
+
+
+-----------------------------------------------------------------------------------------
+
 Select 
     SUM(remainingbalance)/1000000 AS current_face, 
     SUM(cfincmos)/1000000 AS cfincmos,
@@ -8,7 +125,7 @@ INNER JOIN fannies
 ON  fanniebodies.cusip = fannies.cusip
 WHERE coupon = 2
 AND istbaelig = '30 year'
-AND date = '2022-02-01';
+AND date = '2022-04-01';
 
    current_face    |     cfincmos      |     cfinplats     |       float
 -------------------+-------------------+-------------------+-------------------
@@ -23,11 +140,11 @@ AND date = '2022-02-01';
 
 SELECT * 
 FROM fanniebodies
-INNER JOIN fannies
+INNER JOIN fanniesps
 ON  fanniebodies.cusip = fannies.cusip
 WHERE coupon = 2
 AND istbaelig = '30 year'
-AND date = '2022-02-01'
+AND date = '2022-04-01'
 LIMIT 2;
 
 
@@ -122,3 +239,6 @@ AND istbaelig = '30 year';
     current_face    |      cfincmos      |     cfinplats      |       float
 --------------------+--------------------+--------------------+-------------------
  1647604.8267090865 | 29318.766648044693 | 407872.30088864954 | 1210413.759172392
+
+
+

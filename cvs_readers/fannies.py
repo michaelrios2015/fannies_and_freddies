@@ -9,7 +9,7 @@ conn = psycopg2.connect(
 )
 
 # change this monthly
-data_path = 'cvs_readers/data/input/FNM_MF_202202.txt'
+data_path = 'cvs_readers/data/input/FNM_MF_202204.txt'
 
 date = data_path[-10:-6] + "-" + data_path[-6:-4] + "-01"
 
@@ -22,70 +22,78 @@ with open(data_path, newline='') as csvfile:
 
     for row in data:
 
-        try:
-            cusip = row[2]
-            name = row[1]
-            indicator = row[0]
-            issuedate = row[11]
-            maturitydate = row[12]
-            # if row[14] == '':
-            #     originalface = 0
-            # else:
-            originalface = float(row[14])
+        if row[34] != 'SCR':
+            # print(row[34])
+            # break
+            # for part in row:
+            #     print(i)
+            #     print(part)
+            #     i = i + 1
 
-            # print(cusip)
-            # print(name)
-            # print(indicator)
-            # print(issuedate)
-            # print(maturitydate)
-            # print(originalface)
+            try:
+                cusip = row[2]
+                name = row[1]
+                indicator = row[0]
+                issuedate = row[11]
+                maturitydate = row[12]
+                # if row[14] == '':
+                #     originalface = 0
+                # else:
+                originalface = float(row[14])
 
-            end_date = datetime(int(maturitydate[2:6]), int(
-                maturitydate[0:2]), 1)
+                # print(cusip)
+                # print(name)
+                # print(indicator)
+                # print(issuedate)
+                # print(maturitydate)
+                # print(originalface)
 
-            start_date = datetime(int(issuedate[4:8]), int(
-                issuedate[0:2]), int(issuedate[2:4]))
+                end_date = datetime(int(maturitydate[2:6]), int(
+                    maturitydate[0:2]), 1)
 
-            # print(start_date)
+                start_date = datetime(int(issuedate[4:8]), int(
+                    issuedate[0:2]), int(issuedate[2:4]))
 
-            # print(end_date)
+                # print(start_date)
 
-            # print(end_date.strftime("%c"))
+                # print(end_date)
 
-            num_months = (end_date.year - start_date.year) * \
-                12 + (end_date.month - start_date.month)
+                # print(end_date.strftime("%c"))
 
-            # print(num_months)
+                num_months = (end_date.year - start_date.year) * \
+                    12 + (end_date.month - start_date.month)
 
-            istbaelig = 'none'
+                # print(num_months)
 
-            if originalface >= 250000 and num_months <= 181 and num_months > 120 and (indicator == 'CN' or indicator == 'CI'):
+                istbaelig = 'none'
 
-                istbaelig = '15 year'
+                if originalface >= 250000 and num_months <= 181 and num_months > 120 and (indicator == 'CN' or indicator == 'CI'):
 
-            elif originalface >= 250000 and num_months > 181 and num_months <= 361 and (indicator == 'CL' or indicator == 'CT'):
+                    istbaelig = '15 year'
 
-                istbaelig = '30 year'
+                elif originalface >= 250000 and num_months > 181 and num_months <= 361 and (indicator == 'CL' or indicator == 'CT'):
 
-            # print(istbaelig)
+                    istbaelig = '30 year'
 
-            head.append([cusip, name, indicator, start_date.date(),
-                        end_date.date(), originalface, istbaelig])
+                # print(istbaelig)
 
-            coupon = row[16]
-            remainingbalance = row[15]
-            factor = row[4]
-            gwac = row[18]
-            wam = row[22]
-            wala = row[23]
+                head.append([cusip, name, indicator, start_date.date(),
+                            end_date.date(), originalface, istbaelig])
 
-            body.append([cusip, coupon, remainingbalance,
-                        factor, gwac, wam, wala, date])
+                coupon = row[16]
+                remainingbalance = row[15]
+                factor = row[4]
+                gwac = row[18]
+                wam = row[22]
+                wala = row[23]
 
-        except Exception as e:
-            # we seem to get a couple of very new supers (like platinums) each month
-            print(row)
-            print(e)
+                body.append([cusip, coupon, remainingbalance,
+                            factor, gwac, wam, wala, date, 0, 0])
+
+            except Exception as e:
+                # we seem to get a couple of very new supers (like platinums) each month
+                print(row)
+                print(e)
 
 headfields = ["cusip", "name", "indicator", "issuedate",
               "maturitydate", "originalface", "istbaelig"]
@@ -102,7 +110,7 @@ with open('cvs_readers/data/output/fannies.cvs', 'w', newline='') as csvfile:
 
 
 bodyFields = ["cusip", "coupon", "remainingbalance",
-              "factor", "gwac", "wam", "wala", "date"]
+              "factor", "gwac", "wam", "wala", "date", 'cfincmos', 'cfinplats']
 
 with open('cvs_readers/data/output/fanniebodies.cvs', 'w', newline='') as csvfile:
     # creating a csv writer object
