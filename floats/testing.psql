@@ -1,3 +1,108 @@
+-- 5/7/22
+
+-- trying to figure out how I can connect the pool fannies to the platinum fannies 
+
+SELECT COUNT(DISTINCT fannies.cusip)
+FROM fannies
+INNER JOIN platinums
+ON fannies.cusip = platinums.poolcusip;
+
+-- ok so with FNM_MF_202204 we have
+ count
+--------
+ 330174
+
+-- pools that have some of their of in platinums... are any of those platinums the fannie platinums... I don't know  
+
+SELECT 
+    COUNT(DISTINCT fannies.cusip)
+    -- *
+FROM fannies
+INNER JOIN platinums
+ON fannies.cusip = platinums.platcusip;
+LIMIT 5;
+
+ count
+-------
+    47
+
+CREATE TEMP TABLE poolsorplats AS
+SELECT 
+    DISTINCT fannies.cusip
+    -- *
+FROM fannies
+INNER JOIN platinums
+ON fannies.cusip = platinums.platcusip;
+
+SELECT 
+    * 
+FROM poolsorplats p
+INNER JOIN fanniebodies f
+ON p.cusip = f.cusip
+WHERE f.remainingbalance > 0;
+LIMIT 4;
+
+  -- so I thought this would be zero.... 
+--   sent david one he says it is matured which I think means that it does not matter but waiting for a reply 
+
+-- will now erase all fannie and fannie bodies put in the platinum fannies and see what I get when I redo this 
+
+TRUNCATE fannies, fanniebodies;
+
+-- so that gives us a total of 
+
+ count
+-------
+ 34671
+
+ SELECT COUNT(DISTINCT fannies.cusip)
+FROM fannies
+INNER JOIN platinums
+ON fannies.cusip = platinums.poolcusip;
+
+ count
+-------
+ 17739
+
+--  we do have like half that show up here as pools but that is ok because platinums can contain platinums
+
+ SELECT 
+    COUNT(DISTINCT fannies.cusip)
+    -- *
+FROM fannies
+INNER JOIN platinums
+ON fannies.cusip = platinums.platcusip;
+
+ count
+-------
+ 30219
+
+-- so we get most but not all here but the ones we don't get might be paid off??
+
+SELECT 
+    DISTINCT fannies.cusip
+    -- *
+FROM fannies
+LEFT JOIN platinums
+ON fannies.cusip = platinums.platcusip
+WHERE platinums.platcusip IS NULL
+LIMIT 3;
+
+--  so that should be one of them... 
+
+fannies=# SELECT * from fanniebodies WHERE cusip = '3140J82E2';
+   cusip   | coupon | remainingbalance |   factor   | gwac  | wam | wala |    date    | cfincmos | cfinplats
+-----------+--------+------------------+------------+-------+-----+------+------------+----------+-----------
+ 3140J82E2 |  3.004 |       3651837.39 | 0.23246397 | 3.632 | 287 |   73 | 2022-04-01 |        0 |         0
+(1 row)
+
+
+fannies=# SELECT * from fannies WHERE cusip = '3140J82E2';
+   cusip   |  name  | indicator | issuedate  | maturitydate | originalface | istbaelig
+-----------+--------+-----------+------------+--------------+--------------+-----------
+ 3140J82E2 | BM4372 | LB        | 2018-07-01 | 2048-03-01   |     15709262 | none
+
+
 -- 4/27/22
 
 Prefix|Security Identifier|CUSIP|Security Factor Date|Security Factor|Payment Delay Days|Security Data Correction Indicator|Security Status Indicator|Security Notification Indicator|Security Description|Issuer|Issue Date|Maturity Date|Updated Longest Maturity Date|Issuance Investor Security UPB|Current Investor Security UPB|WA Net Interest Rate|WA Issuance Interest Rate|WA Current Interest Rate|WA Net Accrual Interest Rate|WA Loan Term|WA Issuance Remaining Months to Maturity|WA Current Remaining Months to Maturity|WA Loan Age|WA Mortgage Loan Amount|Average Mortgage Loan Amount|WA Loan-To-Value (LTV)|WA Combined Loan-To-Value (CLTV)|WA Debt-To-Income (DTI)|WA Borrower Credit Score|Filler|Filler|Loan Count|Third Party Origination UPB Percent|Seller Name|Seller City|Seller State|Servicer Name|Servicer City|Servicer State|Delinquent Loans Purchased (Prior Month UPB)|Delinquent Loans Purchased (Loan Count)|Eligible for Resecuritization|Notes|Notes Ongoing|Interest Only Security Indicator|WA Months to Amortization|Prepayment Penalty Indicator|Reduced Minimum Servicing Indicator|Subtype|Index|WA Mortgage Margin|WA MBS PC Margin|Interest Rate Adjustment Frequency|Interest Rate Lookback|Payment Adjustment Frequency|Payment Lookback|Convertibility Indicator|Negative Amortization Indicator|Negative Amortization Factor|WA Negative Amortization Limit|Initial Fixed Rate Period|First Rate Adjustment Date|First Payment Adjustment Date|WA Months to Next Rate Adjustment Date|WA Life Interest Rate Ceiling|WA Net Life Interest Rate Ceiling|WA Life Interest Rate Floor|WA Net Life Interest Rate Floor|Initial Interest Rate Cap Up %|Initial Interest Rate Cap Down %|Periodic Interest Rate Cap Up %|Periodic Interest Rate Cap Down %|Initial Step Fixed-Rate Period|Step Rate Adjustment Frequency|Next Step Rate Adjustment Date|WA Months to Next Step Rate Adjustment|Periodic Step Rate Cap Up %|WA Origination Mortgage Loan Amount|Average Origination Mortgage Loan Amount|WA Origination Interest Rate|WA Origination Loan Term|WA Origination Loan-To-Value (LTV)|WA Origination Combined Loan-To-Value (CLTV)|WA Origination Debt-To-Income (DTI)|WA Origination Credit Score|Filler|Filler|Origination Third Party Origination UPB Percent|WA Estimated Loan-To-Value (ELTV)|WA Updated Credit Score

@@ -22,13 +22,17 @@ with open(data_path, newline='') as csvfile:
 
     for row in data:
 
-        if row[34] != 'SCR':
+        # this needs to be changed
+        if row[34] != 'SCR' and row[37] != 'SCR':
+            # row[34] != 'SCR' or row[37] != 'SCR':
             # print(row[34])
-            # break
+            # print(row[37])
+            # i = 0
             # for part in row:
             #     print(i)
             #     print(part)
             #     i = i + 1
+            # break
 
             try:
                 cusip = row[2]
