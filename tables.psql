@@ -34,6 +34,35 @@ ADD cfincmos DOUBLE PRECISION;
 ALTER TABLE fanniebodies
 ADD cfinplats DOUBLE PRECISION;
 
+CREATE TABLE IF NOT EXISTS fannieplats (
+    cusip VARCHAR PRIMARY KEY,
+    name VARCHAR,
+    indicator VARCHAR,
+    issuedate DATE,
+    maturitydate DATE,
+    originalface DOUBLE PRECISION,
+    istbaelig istbaelig_type,
+    cfincmos DOUBLE PRECISION,
+    cfinplats DOUBLE PRECISION 
+);
+
+
+CREATE TABLE IF NOT EXISTS fannieplatbodies (
+    cusip VARCHAR,
+    coupon DOUBLE PRECISION,
+    remainingbalance DOUBLE PRECISION,
+    Factor DOUBLE PRECISION,
+    gwac DOUBLE PRECISION,
+    wam INTEGER,
+    wala INTEGER,
+    date DATE, 
+    PRIMARY KEY (cusip, date),
+    cfincmos DOUBLE PRECISION,
+    cfinplats DOUBLE PRECISION
+);
+
+
+
 31360FCE3,5.926,7292.67,0.00027771,6.875,23,457,2021-12-01
 
 Prefix|Security Identifier|CUSIP|Security Factor Date|Security Factor|Payment Delay Days|Security Data Correction Indicator|Security Status Indicator|Security Notification Indicator|Security Description|Issuer|Issue Date|Maturity Date|Updated Longest Maturity Date|Issuance Investor Security UPB|Current Investor Security UPB|WA Net Interest Rate|WA Issuance Interest Rate|WA Current Interest Rate|WA Net Accrual Interest Rate|WA Loan Term|WA Issuance Remaining Months to Maturity|WA Current Remaining Months to Maturity|WA Loan Age|WA Mortgage Loan Amount|Average Mortgage Loan Amount|WA Loan-To-Value (LTV)|WA Combined Loan-To-Value (CLTV)|WA Debt-To-Income (DTI)|WA Borrower Credit Score|Filler|Filler|Loan Count|Third Party Origination UPB Percent|Seller Name|Seller City|Seller State|Servicer Name|Servicer City|Servicer State|Delinquent Loans Purchased (Prior Month UPB)|Delinquent Loans Purchased (Loan Count)|Eligible for Resecuritization|Notes|Notes Ongoing|Interest Only Security Indicator|WA Months to Amortization|Prepayment Penalty Indicator|Reduced Minimum Servicing Indicator|Subtype|Index|WA Mortgage Margin|WA MBS PC Margin|Interest Rate Adjustment Frequency|Interest Rate Lookback|Payment Adjustment Frequency|Payment Lookback|Convertibility Indicator|Negative Amortization Indicator|Negative Amortization Factor|WA Negative Amortization Limit|Initial Fixed Rate Period|First Rate Adjustment Date|First Payment Adjustment Date|WA Months to Next Rate Adjustment Date|WA Life Interest Rate Ceiling|WA Net Life Interest Rate Ceiling|WA Life Interest Rate Floor|WA Net Life Interest Rate Floor|Initial Interest Rate Cap Up %|Initial Interest Rate Cap Down %|Periodic Interest Rate Cap Up %|Periodic Interest Rate Cap Down %|Initial Step Fixed-Rate Period|Step Rate Adjustment Frequency|Next Step Rate Adjustment Date|WA Months to Next Step Rate Adjustment|Periodic Step Rate Cap Up %|WA Origination Mortgage Loan Amount|Average Origination Mortgage Loan Amount|WA Origination Interest Rate|WA Origination Loan Term|WA Origination Loan-To-Value (LTV)|WA Origination Combined Loan-To-Value (CLTV)|WA Origination Debt-To-Income (DTI)|WA Origination Credit Score|Filler|Filler|Origination Third Party Origination UPB Percent|WA Estimated Loan-To-Value (ELTV)|WA Updated Credit Score

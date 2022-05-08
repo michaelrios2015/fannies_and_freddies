@@ -1,3 +1,16 @@
+-- 5/8/22
+
+CREATE TEMP TABLE cusipandname AS
+SELECT 
+    f.cusip,
+    f.name
+FROM fannieplats f
+INNER JOIN platswocollats p
+ON f.cusip = p.cusip;
+
+
+\copy cusipandname to 'C:\Users\micha\OneDrive\Desktop\cusipandname.csv' csv header;
+
 -- 5/7/22
 
 -- trying to figure out how I can connect the pool fannies to the platinum fannies 
@@ -79,14 +92,14 @@ ON fannies.cusip = platinums.platcusip;
 
 -- so we get most but not all here but the ones we don't get might be paid off??
 
+CREATE TEMP TABLE platswocollats AS
 SELECT 
     DISTINCT fannies.cusip
     -- *
 FROM fannies
 LEFT JOIN platinums
 ON fannies.cusip = platinums.platcusip
-WHERE platinums.platcusip IS NULL
-LIMIT 3;
+WHERE platinums.platcusip IS NULL;
 
 --  so that should be one of them... 
 
