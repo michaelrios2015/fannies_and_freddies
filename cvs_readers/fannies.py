@@ -82,20 +82,19 @@ with open(data_path, newline='') as csvfile:
                 maturitydate = row[12]
                 originalface = float(row[14])
 
-                istbaelig = None
-
                 plathead.append([cusip, name, indicator, start_date.date(),
-                                 end_date.date(), originalface, istbaelig])
+                                 end_date.date(), originalface])
 
                 coupon = row[16]
                 remainingbalance = row[15]
                 factor = row[4]
                 gwac = row[18]
                 wam = row[22]
+                istbaelig = None
                 wala = row[23]
 
                 platbody.append([cusip, coupon, remainingbalance,
-                                 factor, gwac, wam, wala, date, 0, 0])
+                                 factor, gwac, wam, wala, date, istbaelig, 0, 0])
 
             except Exception as e:
                 # we seem to get a couple of very new supers (like platinums) each month
@@ -191,7 +190,7 @@ sql = "COPY fannieplatbodies FROM STDIN DELIMITER ',' CSV HEADER"
 cursor.copy_expert(sql, open(csv_file_name, "r"))
 
 sql = '''
-create temporary table fannieplatstemp (cusip varchar, name varchar , indicator varchar, issuedate date, maturitydate date, originalface double precision, istbaelig istbaelig_type);
+create temporary table fannieplatstemp (cusip varchar, name varchar , indicator varchar, issuedate date, maturitydate date, originalface double precision);
 '''
 cursor.execute(sql)
 
@@ -202,8 +201,8 @@ cursor.copy_expert(sql, open(csv_file_name, "r"))
 
 
 sql = '''
-INSERT INTO fannieplats (cusip, name, indicator, issuedate, maturitydate, originalface, istbaelig)
-SELECT cusip, name, indicator, issuedate, maturitydate, originalface, istbaelig
+INSERT INTO fannieplats (cusip, name, indicator, issuedate, maturitydate, originalface)
+SELECT cusip, name, indicator, issuedate, maturitydate, originalface
 FROM fannieplatstemp
 ON CONFLICT (cusip)
 DO NOTHING;

@@ -40,10 +40,7 @@ CREATE TABLE IF NOT EXISTS fannieplats (
     indicator VARCHAR,
     issuedate DATE,
     maturitydate DATE,
-    originalface DOUBLE PRECISION,
-    istbaelig istbaelig_type,
-    cfincmos DOUBLE PRECISION,
-    cfinplats DOUBLE PRECISION 
+    originalface DOUBLE PRECISION
 );
 
 
@@ -57,6 +54,7 @@ CREATE TABLE IF NOT EXISTS fannieplatbodies (
     wala INTEGER,
     date DATE, 
     PRIMARY KEY (cusip, date),
+    istbaelig istbaelig_type,
     cfincmos DOUBLE PRECISION,
     cfinplats DOUBLE PRECISION
 );
