@@ -1,3 +1,135 @@
+
+
+create or replace PROCEDURE srcfanniesnottba( currmonth DATE )
+language plpgsql
+as
+$$
+declare
+   new real := 0;
+   old real := 0;
+begin
+
+  DROP TABLE IF EXISTS currfannies, currfanniesnottba, currfannieplatbodies,
+      platsnottba;
+
+-- so to start I need the tba eligiity of all the pool fannies that still have current face
+  CREATE TEMP TABLE currfannies AS
+  SELECT 
+      f.cusip,
+      f.name,
+      f.istbaelig
+  FROM fannies f
+  INNER JOIN fanniebodies b
+  ON f.cusip = b.cusip
+  WHERE remainingbalance > 0
+  AND date = currmonth;
+
+
+  -- so these immediately kill any platinum they are a part of
+  -- so I put thiem in one group
+  CREATE TEMP TABLE currfanniesnottba AS
+  SELECT 
+      cusip,
+      istbaelig
+  FROM currfannies
+  WHERE istbaelig = 'none';
+
+  CREATE TEMP TABLE currfannieplatbodies AS
+  SELECT cusip
+  FROM fannieplatbodies f
+  WHERE f.date = currmonth;
+
+  -- here I am using the platinum as a through table 
+  -- this gets me the cusips of SRC fannies that are definitly not TBA
+  CREATE TEMP TABLE platsnottba AS
+  SELECT f.cusip
+  FROM currfannieplatbodies f
+  INNER JOIN platinums p
+  ON f.cusip = p.platcusip
+  INNER JOIN currfanniesnottba c
+  ON p.poolcusip = c.cusip
+  GROUP BY f.cusip;
+
+    --  so this will update the first SRC fannies
+  UPDATE fannieplatbodies f
+  SET istbaelig = 'none'
+  FROM platsnottba p
+  WHERE f.cusip = p.cusip
+  AND date = currmonth;
+
+  -- so old should the old number of non tba eligible 
+  -- and new the new number so they both start as zero 
+  -- so this is the first new
+  SELECT COUNT(*)
+  INTO new
+  FROM fannieplatbodies f
+  WHERE istbaelig = 'none'
+  AND date = currmonth;
+
+  
+  WHILE new > old loop
+    -- so from here we can send it into a while loop 
+    -- where we get our plats that are not tba eligible check them againist the other plats 
+    -- and keep going until the count no longer grows
+
+    -- now it's old
+    SELECT COUNT(*)
+    INTO old
+    FROM fannieplatbodies f
+    WHERE istbaelig = 'none'
+    AND date = currmonth;
+
+    DROP TABLE IF EXISTS platsnottba, moreplatsnottba;
+
+    -- now we can check againist SRC that are not tba eligible 
+    CREATE TEMP TABLE platsnottba AS
+    SELECT * 
+    FROM fannieplatbodies
+    WHERE istbaelig = 'none'
+    AND date = currmonth;
+
+    -- so using platinum as through table checking SRC again SRC
+    CREATE TEMP TABLE moreplatsnottba AS
+    SELECT 
+        -- *
+        f.cusip
+    FROM currfannieplatbodies f
+    INNER JOIN platinums p
+    ON f.cusip = p.platcusip
+    INNER JOIN platsnottba c
+    ON p.poolcusip = c.cusip
+    GROUP BY f.cusip;
+
+  --  not as many and some are repeats but that is fine SELECT 4286
+
+    UPDATE fannieplatbodies f
+    SET istbaelig = 'none'
+    FROM moreplatsnottba p
+    WHERE f.cusip = p.cusip;
+
+    -- we count again 
+    SELECT COUNT(*)
+    INTO new
+    FROM fannieplatbodies f
+    WHERE istbaelig = 'none'
+    AND date = currmonth;
+
+  END loop; 
+  
+  DROP TABLE IF EXISTS currfannies, currfanniesnottba, currfannieplatbodies,
+      platsnottba, moreplatsnottba;
+
+end;
+
+
+$$;
+
+
+
+call srcfanniesnottba('2022-04-01');
+
+-----------------------------------------------------------------------------------------------
+
 -- so to start I need the tba eligiity of all the pool fannies that still have current face
 
 CREATE TEMP TABLE currfannies AS
@@ -145,3 +277,275 @@ fannies=# SELECT * from fannieplatbodies b inner join fannieplats f ON b.cusip =
  3140XA6L1 |    4.5 |        2987554.3 | 0.61211971 |  5.06 | 241 |  104 | 2022-04-01 | none      |        0 |         0 | 3140XA6L1 | FM7174 | CL        | 2022-03-01 | 2042-04-01   |      4880670
  3140XA4T6 |    3.5 |       1151185.81 |   0.637328 | 3.983 |  66 |  108 | 2022-04-01 | none      |        0 |         0 | 3140XA4T6 | FM7133 | CI        | 2022-03-01 | 2042-04-01   |      1806269
  3140XA4S8 |    2.5 |       6739021.23 | 0.56834826 | 3.084 |  56 |   60 | 2022-04-01 | none      |        0 |         0 | 3140XA4S8 | FM7132 | CN        | 2022-03-01 | 2042-04-01   |     11857204
+
+
+SELECT 
+    *
+FROM platinums p 
+INNER JOIN fannieplatbodies f
+ON f.cusip = p.poolcusip
+WHERE p.platcusip = '3140XA4S8'
+
+
+SELECT 
+    *
+FROM platinums p 
+INNER JOIN fannies f
+ON f.cusip = p.poolcusip
+WHERE p.platcusip = '3140XA4S8'
+
+
+SELECT * 
+FROM platinums p
+INNER JOIN fannieplatbodies f
+ON p.poolcusip = f.cusip
+WHERE f.istbaelig = 'none'
+and p.platcusip = '3140XAS45'; 
+
+ platcusip | poolcusip | ofinplat |    date    |   cusip   | coupon | remainingbalance |   factor   | gwac  | wam | wala |    date    | istbaelig | cfincmos | cfinplats
+-----------+-----------+----------+------------+-----------+--------+------------------+------------+-------+-----+------+------------+-----------+----------+-----------
+ 3140XAS45 | 31374CNV4 |    15000 | 2021-06-01 | 31374CNV4 |    5.5 |     104044491.87 | 0.06100669 | 5.942 | 132 |  216 | 2022-04-01 | none      |        0 |         0
+ 3140XAS45 | 3138EHDT6 |   170000 | 2021-06-01 | 3138EHDT6 |    5.5 |       5862261.25 | 0.05862865 | 5.958 | 127 |  221 | 2022-04-01 | none      |        0 |         0
+ 3140XAS45 | 3138EHWD0 |    27500 | 2021-06-01 | 3138EHWD0 |    5.5 |       9536176.16 |  0.0634928 | 5.917 | 135 |  214 | 2022-04-01 | none      |        0 |         0
+ 3140XAS45 | 3138EJYG7 |   402000 | 2021-06-01 | 3138EJYG7 |    5.5 |       1607213.58 | 0.08013156 |  5.96 | 120 |  225 | 2022-04-01 | none      |        0 |         0
+ 3140XAS45 | 3138EKSM8 |    90000 | 2021-06-01 | 3138EKSM8 |    5.5 |       5788291.35 | 0.05788291 | 6.095 | 178 |  170 | 2022-04-01 | none      |        0 |         0
+ 3140XAS45 | 3138ESAD0 |   224000 | 2021-06-01 | 3138ESAD0 |    5.5 |     193540963.34 | 0.31171456 | 5.991 | 141 |  207 | 2022-04-01 | none      |        0 |         0
+ 3140XAS45 | 31402RUN7 |   350000 | 2021-06-01 | 31402RUN7 |    5.5 |      35979419.88 |    0.01469 | 5.955 | 121 |  227 | 2022-04-01 | none      |        0 |         0
+ 3140XAS45 | 3140J7RS6 |    29000 | 2021-06-01 | 3140J7RS6 |    5.5 |      53454097.33 | 0.37948656 | 5.987 | 146 |  202 | 2022-04-01 | none      |        0 |         0
+ 3140XAS45 | 3140J9FX4 |    32000 | 2021-06-01 | 3140J9FX4 |    5.5 |      82556545.33 | 0.45926184 | 6.001 | 151 |  196 | 2022-04-01 | none      |        0 |         0
+ 3140XAS45 | 3140X8MC8 |    10000 | 2021-06-01 | 3140X8MC8 |    5.5 |       29703799.4 | 0.67875324 | 6.016 | 153 |  194 | 2022-04-01 | none      |        0 |         0
+ 3140XAS45 | 3140X9XJ9 |     5000 | 2021-06-01 | 3140X9XJ9 |    5.5 |      28032084.21 |  0.7135215 | 6.033 | 161 |  187 | 2022-04-01 | none      |        0 |         0
+ 3140XAS45 | 31410F3J2 |  4650000 | 2021-06-01 | 31410F3J2 |    5.5 |      10144012.22 | 0.02557866 | 5.937 | 128 |  222 | 2022-04-01 | none      |        0 |         0
+ 3140XAS45 | 31410GUP6 |   300525 | 2021-06-01 | 31410GUP6 |    5.5 |       2147789.03 | 0.01746174 |  6.07 | 153 |  197 | 2022-04-01 | none      |        0 |         0
+ 3140XAS45 | 31410GZC0 |    84000 | 2021-06-01 | 31410GZC0 |    5.5 |      11932161.07 | 0.01708743 | 6.026 | 151 |  197 | 2022-04-01 | none      |        0 |         0
+ 3140XAS45 | 31410KLW2 |   355000 | 2021-06-01 | 31410KLW2 |    5.5 |       10289003.4 | 0.02733998 | 5.943 | 138 |  211 | 2022-04-01 | none      |        0 |         0
+ 3140XAS45 | 31410KNH3 |   125400 | 2021-06-01 | 31410KNH3 |    5.5 |      38630856.36 | 0.01287695 | 6.134 | 175 |  174 | 2022-04-01 | none      |        0 |         0
+ 3140XAS45 | 31410KVW1 |  1300000 | 2021-06-01 | 31410KVW1 |    5.5 |      24866879.46 | 0.02249915 | 5.952 | 127 |  222 | 2022-04-01 | none      |        0 |         0
+ 3140XAS45 | 31410KXK5 |  3847451 | 2021-06-01 | 31410KXK5 |    5.5 |      67365175.81 | 0.01171568 | 6.037 | 177 |  172 | 2022-04-01 | none      |        0 |         0
+ 3140XAS45 | 31410LFE7 |     8000 | 2021-06-01 | 31410LFE7 |    5.5 |      11969520.75 | 0.02393904 |  6.06 | 177 |  172 | 2022-04-01 | none      |        0 |         0
+
+
+SELECT * 
+FROM platinums p
+INNER JOIN fannieplatbodies f
+ON p.poolcusip = f.cusip
+WHERE f.istbaelig = 'none'
+and p.platcusip = '31410LFE7'; 
+
+ platcusip | poolcusip | ofinplat |    date    |   cusip   | coupon | remainingbalance |   factor   | gwac  | wam | wala |    date    | istbaelig | cfincmos | cfinplats
+-----------+-----------+----------+------------+-----------+--------+------------------+------------+-------+-----+------+------------+-----------+----------+-----------
+ 31410LFE7 | 31368HM42 |   265000 | 2021-06-01 | 31368HM42 |    5.5 |      41988676.77 | 0.00943566 | 6.107 | 167 |  182 | 2022-04-01 | none      |        0 |         0
+ 31410LFE7 | 31368HMY6 |    89618 | 2021-06-01 | 31368HMY6 |    5.5 |      16265588.08 | 0.00903644 | 6.115 | 158 |  191 | 2022-04-01 | none      |        0 |         0
+ 31410LFE7 | 3138EGN83 | 10200104 | 2021-06-01 | 3138EGN83 |    5.5 |       6137808.86 | 0.01930129 | 6.028 | 176 |  174 | 2022-04-01 | none      |        0 |         0
+ 31410LFE7 | 3138EGSJ4 |   537484 | 2021-06-01 | 3138EGSJ4 |    5.5 |       23746872.9 | 0.02274264 | 5.984 | 182 |  167 | 2022-04-01 | none      |        0 |         0
+ 31410LFE7 | 31410FVY8 |   135000 | 2021-06-01 | 31410FVY8 |    5.5 |       7304322.11 |  0.0097391 | 6.235 | 165 |  184 | 2022-04-01 | none      |        0 |         0
+ 31410LFE7 | 31410GRN5 |    38000 | 2021-06-01 | 31410GRN5 |    5.5 |       7398847.36 | 0.01405399 | 6.008 | 152 |  199 | 2022-04-01 | none      |        0 |         0
+ 31410LFE7 | 31410KHV9 |  1921634 | 2021-06-01 | 31410KHV9 |    5.5 |       2101827.32 | 0.01050914 | 6.175 | 175 |  174 | 2022-04-01 | none      |        0 |         0
+ 31410LFE7 | 31410KXK5 |   336880 | 2021-06-01 | 31410KXK5 |    5.5 |      67365175.81 | 0.01171568 | 6.037 | 177 |  172 | 2022-04-01 | none      |        0 |         0
+ 31410LFE7 | 31419AA31 | 27544486 | 2021-06-01 | 31419AA31 |    5.5 |        934370.19 | 0.01669684 | 6.087 | 168 |  180 | 2022-04-01 | none      |        0 |         0
+(9 rows)
+
+SELECT * 
+FROM platinums p
+INNER JOIN fannieplatbodies f
+ON p.poolcusip = f.cusip
+WHERE f.istbaelig = 'none'
+and p.platcusip = '31419AA31'; 
+
+
+ platcusip | poolcusip | ofinplat |    date    |   cusip   | coupon | remainingbalance |   factor   | gwac  | wam | wala |    date    | istbaelig | cfincmos | cfinplats
+-----------+-----------+----------+------------+-----------+--------+------------------+------------+-------+-----+------+------------+-----------+----------+-----------
+ 31419AA31 | 31368HM42 | 60647451 | 2021-06-01 | 31368HM42 |    5.5 |      41988676.77 | 0.00943566 | 6.107 | 167 |  182 | 2022-04-01 | none      |        0 |         0
+ 31419AA31 | 31403DUB3 |  1268392 | 2021-06-01 | 31403DUB3 |    5.5 |        9261560.2 | 0.01029062 |  6.14 | 158 |  191 | 2022-04-01 | none      |        0 |         0
+ 31419AA31 | 31410FYQ2 |  9356641 | 2021-06-01 | 31410FYQ2 |    5.5 |      11888660.91 | 0.01080787 | 6.142 | 163 |  184 | 2022-04-01 | none      |        0 |         0
+ 31419AA31 | 31416BLA4 |    23107 | 2021-06-01 | 31416BLA4 |    5.5 |      39723079.74 | 0.01173695 | 6.154 | 162 |  188 | 2022-04-01 | none      |        0 |         0
+ 31419AA31 | 31416CHW9 |  6338109 | 2021-06-01 | 31416CHW9 |    5.5 |       3934621.99 | 0.01311541 |   6.1 | 170 |  180 | 2022-04-01 | none      |        0 |         0
+
+SELECT * 
+FROM platinums p
+INNER JOIN fannieplatbodies f
+ON p.poolcusip = f.cusip
+WHERE f.istbaelig = 'none'
+and p.platcusip = '31416CHW9'; 
+
+ platcusip | poolcusip | ofinplat |    date    |   cusip   | coupon | remainingbalance |   factor   | gwac  | wam | wala |    date    | istbaelig | cfincmos | cfinplats
+-----------+-----------+----------+------------+-----------+--------+------------------+------------+-------+-----+------+------------+-----------+----------+-----------
+ 31416CHW9 | 31368HM42 |  1530741 | 2021-06-01 | 31368HM42 |    5.5 |      41988676.77 | 0.00943566 | 6.107 | 167 |  182 | 2022-04-01 | none      |        0 |         0
+ 31416CHW9 | 31403DUB3 | 24320596 | 2021-06-01 | 31403DUB3 |    5.5 |        9261560.2 | 0.01029062 |  6.14 | 158 |  191 | 2022-04-01 | none      |        0 |         0
+ 31416CHW9 | 31403DWF2 |  1214000 | 2021-06-01 | 31403DWF2 |    5.5 |      24339173.34 | 0.00973567 | 6.122 | 158 |  192 | 2022-04-01 | none      |        0 |         0
+ 31416CHW9 | 31410FVW2 |  2886421 | 2021-06-01 | 31410FVW2 |    5.5 |      45342309.62 | 0.01079579 |  6.18 | 163 |  185 | 2022-04-01 | none      |        0 |         0
+ 31416CHW9 | 31410KPL2 |  6046419 | 2021-06-01 | 31410KPL2 |    5.5 |      12263328.54 | 0.01156148 | 6.099 | 169 |  179 | 2022-04-01 | none      |        0 |         0
+ 31416CHW9 | 31410KQA5 |  1341790 | 2021-06-01 | 31410KQA5 |    5.5 |       21259132.3 | 0.01173918 | 6.165 | 167 |  182 | 2022-04-01 | none      |        0 |         0
+ 31416CHW9 | 31410KQX5 |   155000 | 2021-06-01 | 31410KQX5 |    5.5 |       6708719.52 |  0.0114176 | 6.119 | 170 |  180 | 2022-04-01 | none      |        0 |         0
+ 31416CHW9 | 31410KTK0 |  1029686 | 2021-06-01 | 31410KTK0 |    5.5 |       1717295.37 | 0.01095185 | 6.132 | 168 |  182 | 2022-04-01 | none      |        0 |         0
+ 31416CHW9 | 31410KXZ2 | 10663043 | 2021-06-01 | 31410KXZ2 |    5.5 |      72755706.21 | 0.01059239 | 6.096 | 170 |  178 | 2022-04-01 | none      |        0 |         0
+ 31416CHW9 | 31416BK72 |  3055015 | 2021-06-01 | 31416BK72 |    5.5 |     185246213.45 | 0.01065538 | 6.146 | 168 |  182 | 2022-04-01 | none      |        0 |         0
+ 31416CHW9 | 31416BLA4 | 35587441 | 2021-06-01 | 31416BLA4 |    5.5 |      39723079.74 | 0.01173695 | 6.154 | 162 |  188 | 2022-04-01 | none      |        0 |         0
+
+
+SELECT * 
+FROM platinums p
+INNER JOIN fannieplatbodies f
+ON p.poolcusip = f.cusip
+WHERE f.istbaelig = 'none'
+and p.platcusip = '31416BLA4'; 
+
+ platcusip | poolcusip |  ofinplat  |    date    |   cusip   | coupon | remainingbalance |   factor   | gwac  | wam | wala |    date    | istbaelig | cfincmos | cfinplats
+-----------+-----------+------------+------------+-----------+--------+------------------+------------+-------+-----+------+------------+-----------+----------+-----------
+ 31416BLA4 | 31368HMY6 |  166262320 | 2021-06-01 | 31368HMY6 |    5.5 |      16265588.08 | 0.00903644 | 6.115 | 158 |  191 | 2022-04-01 | none      |        0 |         0
+ 31416BLA4 | 31403DSJ9 |   17494032 | 2021-06-01 | 31403DSJ9 |    5.5 |       7362042.49 | 0.01090673 | 6.112 | 157 |  192 | 2022-04-01 | none      |        0 |         0
+ 31416BLA4 | 31403DUC1 |    2111387 | 2021-06-01 | 31403DUC1 |    5.5 |       5274244.63 | 0.01054849 | 6.126 | 158 |  192 | 2022-04-01 | none      |        0 |         0
+ 31416BLA4 | 31403DWF2 |  550288335 | 2021-06-01 | 31403DWF2 |    5.5 |      24339173.34 | 0.00973567 | 6.122 | 158 |  192 | 2022-04-01 | none      |        0 |         0
+ 31416BLA4 | 31403DWU9 |    8715213 | 2021-06-01 | 31403DWU9 |    5.5 |      11514874.07 | 0.01151487 | 6.094 | 158 |  192 | 2022-04-01 | none      |        0 |         0
+ 31416BLA4 | 31410FST3 |  636032197 | 2021-06-01 | 31410FST3 |    5.5 |      10281408.66 | 0.00822513 | 6.175 | 163 |  187 | 2022-04-01 | none      |        0 |         0
+ 31416BLA4 | 31410FYS8 |  547920853 | 2021-06-01 | 31410FYS8 |    5.5 |      43129663.26 | 0.01120251 | 6.147 | 164 |  186 | 2022-04-01 | none      |        0 |         0
+ 31416BLA4 | 31410KYF5 | 1252569146 | 2021-06-01 | 31410KYF5 |    5.5 |      23843522.18 | 0.01150057 | 6.174 | 164 |  186 | 2022-04-01 | none      |        0 |         0
+
+ 
+SELECT * 
+FROM platinums p
+INNER JOIN fannieplatbodies f
+ON p.poolcusip = f.cusip
+WHERE f.istbaelig = 'none'
+and p.platcusip = '31410KYF5'; 
+
+ platcusip | poolcusip | ofinplat |    date    |   cusip   | coupon | remainingbalance |   factor   | gwac  | wam | wala |    date    | istbaelig | cfincmos | cfinplats
+-----------+-----------+----------+------------+-----------+--------+------------------+------------+-------+-----+------+------------+-----------+----------+-----------
+ 31410KYF5 | 31368HMY6 | 10870383 | 2021-06-01 | 31368HMY6 |    5.5 |      16265588.08 | 0.00903644 | 6.115 | 158 |  191 | 2022-04-01 | none      |        0 |         0
+ 31410KYF5 | 31403DJ75 | 58885279 | 2021-06-01 | 31403DJ75 |    5.5 |       6866578.04 | 0.01011285 | 6.087 | 156 |  193 | 2022-04-01 | none      |        0 |         0
+ 31410KYF5 | 31403DP94 |   444133 | 2021-06-01 | 31403DP94 |    5.5 |       4307710.29 | 0.01380981 | 6.055 | 153 |  194 | 2022-04-01 | none      |        0 |         0
+ 31410KYF5 | 31403DPR4 |  5048904 | 2021-06-01 | 31403DPR4 |    5.5 |       3512430.99 | 0.01003552 |  6.08 | 158 |  193 | 2022-04-01 | none      |        0 |         0
+ 31410KYF5 | 31403DSJ9 | 33863185 | 2021-06-01 | 31403DSJ9 |    5.5 |       7362042.49 | 0.01090673 | 6.112 | 157 |  192 | 2022-04-01 | none      |        0 |         0
+ 31410KYF5 | 31403DUC1 | 10829296 | 2021-06-01 | 31403DUC1 |    5.5 |       5274244.63 | 0.01054849 | 6.126 | 158 |  192 | 2022-04-01 | none      |        0 |         0
+ 31410KYF5 | 31403DWF2 | 44763383 | 2021-06-01 | 31403DWF2 |    5.5 |      24339173.34 | 0.00973567 | 6.122 | 158 |  192 | 2022-04-01 | none      |        0 |         0
+ 31410KYF5 | 31403DWU9 |  3536910 | 2021-06-01 | 31403DWU9 |    5.5 |      11514874.07 | 0.01151487 | 6.094 | 158 |  192 | 2022-04-01 | none      |        0 |         0
+ 31410KYF5 | 31410F2R5 | 80098672 | 2021-06-01 | 31410F2R5 |    5.5 |      16708834.23 | 0.00974844 | 6.185 | 165 |  183 | 2022-04-01 | none      |        0 |         0
+ 31410KYF5 | 31410FST3 | 11989563 | 2021-06-01 | 31410FST3 |    5.5 |      10281408.66 | 0.00822513 | 6.175 | 163 |  187 | 2022-04-01 | none      |        0 |         0
+ 31410KYF5 | 31410FVW2 | 41040303 | 2021-06-01 | 31410FVW2 |    5.5 |      45342309.62 | 0.01079579 |  6.18 | 163 |  185 | 2022-04-01 | none      |        0 |         0
+ 31410KYF5 | 31410FVY8 | 99647842 | 2021-06-01 | 31410FVY8 |    5.5 |       7304322.11 |  0.0097391 | 6.235 | 165 |  184 | 2022-04-01 | none      |        0 |         0
+ 31410KYF5 | 31410FYS8 | 29419372 | 2021-06-01 | 31410FYS8 |    5.5 |      43129663.26 | 0.01120251 | 6.147 | 164 |  186 | 2022-04-01 | none      |        0 |         0
+ 31410KYF5 | 31410GF99 |  4911599 | 2021-06-01 | 31410GF99 |    5.5 |       2897017.77 | 0.01189022 | 6.084 | 156 |  194 | 2022-04-01 | none      |        0 |         0
+ 31410KYF5 | 31410GFG3 |    99048 | 2021-06-01 | 31410GFG3 |    5.5 |       2891314.33 | 0.01128423 | 6.112 | 155 |  195 | 2022-04-01 | none      |        0 |         0
+ 31410KYF5 | 31410GPG2 |  4877962 | 2021-06-01 | 31410GPG2 |    5.5 |       4072908.26 | 0.01135833 | 6.201 | 164 |  186 | 2022-04-01 | none      |        0 |         0
+
+SELECT * 
+FROM platinums p
+INNER JOIN fannieplatbodies f
+ON p.poolcusip = f.cusip
+WHERE f.istbaelig = 'none'
+and p.platcusip = '31410GPG2'; 
+
+ platcusip | poolcusip | ofinplat |    date    |   cusip   | coupon | remainingbalance |   factor   | gwac  | wam | wala |    date    | istbaelig | cfincmos | cfinplats
+-----------+-----------+----------+------------+-----------+--------+------------------+------------+-------+-----+------+------------+-----------+----------+-----------
+ 31410GPG2 | 31410FVW2 |  8817416 | 2021-06-01 | 31410FVW2 |    5.5 |      45342309.62 | 0.01079579 |  6.18 | 163 |  185 | 2022-04-01 | none      |        0 |         0
+ 31410GPG2 | 31410FYS8 |  2000000 | 2021-06-01 | 31410FYS8 |    5.5 |      43129663.26 | 0.01120251 | 6.147 | 164 |  186 | 2022-04-01 | none      |        0 |         0
+
+ SELECT * 
+FROM platinums p
+INNER JOIN fannieplatbodies f
+ON p.poolcusip = f.cusip
+WHERE f.istbaelig = 'none'
+and p.platcusip = '31410FYS8'; 
+
+ platcusip | poolcusip | ofinplat |    date    |   cusip   | coupon | remainingbalance |   factor   | gwac  | wam | wala |    date    | istbaelig | cfincmos | cfinplats
+-----------+-----------+----------+------------+-----------+--------+------------------+------------+-------+-----+------+------------+-----------+----------+-----------
+ 31410FYS8 | 31368HMY6 |  4576726 | 2021-06-01 | 31368HMY6 |    5.5 |      16265588.08 | 0.00903644 | 6.115 | 158 |  191 | 2022-04-01 | none      |        0 |         0
+ 31410FYS8 | 31403DSJ9 |   364713 | 2021-06-01 | 31403DSJ9 |    5.5 |       7362042.49 | 0.01090673 | 6.112 | 157 |  192 | 2022-04-01 | none      |        0 |         0
+ 31410FYS8 | 31403DUC1 |  1040410 | 2021-06-01 | 31403DUC1 |    5.5 |       5274244.63 | 0.01054849 | 6.126 | 158 |  192 | 2022-04-01 | none      |        0 |         0
+ 31410FYS8 | 31403DPR4 | 18630258 | 2021-06-01 | 31403DPR4 |    5.5 |       3512430.99 | 0.01003552 |  6.08 | 158 |  193 | 2022-04-01 | none      |        0 |         0
+ 31410FYS8 | 31403DWF2 |   440659 | 2021-06-01 | 31403DWF2 |    5.5 |      24339173.34 | 0.00973567 | 6.122 | 158 |  192 | 2022-04-01 | none      |        0 |         0
+
+
+SELECT * from tbacheck where cusip = '31403DWF2';
+
+SELECT * 
+FROM platinums p
+INNER JOIN fannieplatbodies f
+ON p.poolcusip = f.cusip
+WHERE f.istbaelig = 'none'
+and p.platcusip = '31403DWF2'; 
+
+ platcusip | poolcusip | ofinplat |    date    |   cusip   | coupon | remainingbalance |   factor   | gwac  | wam | wala |    date    | istbaelig | cfincmos | cfinplats
+-----------+-----------+----------+------------+-----------+--------+------------------+------------+-------+-----+------+------------+-----------+----------+-----------
+ 31403DWF2 | 31403DJ75 | 35721006 | 2021-06-01 | 31403DJ75 |    5.5 |       6866578.04 | 0.01011285 | 6.087 | 156 |  193 | 2022-04-01 | none      |        0 |         0
+ 31403DWF2 | 31403DPR4 | 58374528 | 2021-06-01 | 31403DPR4 |    5.5 |       3512430.99 | 0.01003552 |  6.08 | 158 |  193 | 2022-04-01 | none      |        0 |         0
+ 31403DWF2 | 31403DSJ9 | 29779997 | 2021-06-01 | 31403DSJ9 |    5.5 |       7362042.49 | 0.01090673 | 6.112 | 157 |  192 | 2022-04-01 | none      |        0 |         0
+ 31403DWF2 | 31403DUC1 | 39225650 | 2021-06-01 | 31403DUC1 |    5.5 |       5274244.63 | 0.01054849 | 6.126 | 158 |  192 | 2022-04-01 | none      |        0 |         0
+
+
+SELECT * from tbacheck where cusip = '31403DUC1';
+
+SELECT * 
+FROM platinums p
+INNER JOIN fannieplatbodies f
+ON p.poolcusip = f.cusip
+WHERE f.istbaelig = 'none'
+and p.platcusip = '31403DUC1';
+
+ platcusip | poolcusip | ofinplat |    date    |   cusip   | coupon | remainingbalance |   factor   | gwac  | wam | wala |    date    | istbaelig | cfincmos | cfinplats
+-----------+-----------+----------+------------+-----------+--------+------------------+------------+-------+-----+------+------------+-----------+----------+-----------
+ 31403DUC1 | 31403DPR4 |  2833527 | 2021-06-01 | 31403DPR4 |    5.5 |       3512430.99 | 0.01003552 |  6.08 | 158 |  193 | 2022-04-01 | none      |        0 |         0
+ 31403DUC1 | 31403DSJ9 | 17569922 | 2021-06-01 | 31403DSJ9 |    5.5 |       7362042.49 | 0.01090673 | 6.112 | 157 |  192 | 2022-04-01 | none      |        0 |         0
+
+ 
+SELECT * from tbacheck where cusip = '31403DSJ9';
+
+SELECT * 
+FROM platinums p
+INNER JOIN fannieplatbodies f
+ON p.poolcusip = f.cusip
+WHERE f.istbaelig = 'none'
+and p.platcusip = '31403DSJ9';
+
+ platcusip | poolcusip | ofinplat |    date    |   cusip   | coupon | remainingbalance |   factor   | gwac  | wam | wala |    date    | istbaelig | cfincmos | cfinplats
+-----------+-----------+----------+------------+-----------+--------+------------------+------------+-------+-----+------+------------+-----------+----------+-----------
+ 31403DSJ9 | 31403DP94 |    69227 | 2021-06-01 | 31403DP94 |    5.5 |       4307710.29 | 0.01380981 | 6.055 | 153 |  194 | 2022-04-01 | none      |        0 |         0
+ 31403DSJ9 | 31403DPR4 |   966553 | 2021-06-01 | 31403DPR4 |    5.5 |       3512430.99 | 0.01003552 |  6.08 | 158 |  193 | 2022-04-01 | none      |        0 |         0
+
+ 
+SELECT * from tbacheck where cusip = '31403DPR4';
+
+SELECT * 
+FROM platinums p
+INNER JOIN fannieplatbodies f
+ON p.poolcusip = f.cusip
+WHERE f.istbaelig = 'none'
+and p.platcusip = '31403DPR4';
+
+ platcusip | poolcusip | ofinplat |    date    |   cusip   | coupon | remainingbalance |   factor   | gwac  | wam | wala |    date    | istbaelig | cfincmos | cfinplats
+-----------+-----------+----------+------------+-----------+--------+------------------+------------+-------+-----+------+------------+-----------+----------+-----------
+ 31403DPR4 | 31403DJ75 |    54264 | 2021-06-01 | 31403DJ75 |    5.5 |       6866578.04 | 0.01011285 | 6.087 | 156 |  193 | 2022-04-01 | none      |        0 |         0
+
+ 
+SELECT * from tbacheck where cusip = '31403DJ75';
+
+SELECT * 
+FROM platinums p
+INNER JOIN fannieplatbodies f
+ON p.poolcusip = f.cusip
+WHERE f.istbaelig = 'none'
+and p.platcusip = '31403DJ75';
+
+ platcusip | poolcusip | ofinplat |    date    |   cusip   | coupon | remainingbalance |  factor   | gwac  | wam | wala |    date    | istbaelig | cfincmos | cfinplats
+-----------+-----------+----------+------------+-----------+--------+------------------+-----------+-------+-----+------+------------+-----------+----------+-----------
+ 31403DJ75 | 31403DDX4 |   111163 | 2021-06-01 | 31403DDX4 |    5.5 |     162141313.99 | 0.0133377 | 6.048 | 152 |  196 | 2022-04-01 | none      |        0 |         0
+
+ 
+SELECT * from tbacheck where cusip = '31403DDX4';
+
+SELECT * 
+FROM platinums p
+INNER JOIN fannieplatbodies f
+ON p.poolcusip = f.cusip
+WHERE f.istbaelig = 'none'
+and p.platcusip = '31403DDX4';
+
+ platcusip | poolcusip | ofinplat |    date    |   cusip   | coupon | remainingbalance |   factor   | gwac  | wam | wala |    date    | istbaelig | cfincmos | cfinplats
+-----------+-----------+----------+------------+-----------+--------+------------------+------------+-------+-----+------+------------+-----------+----------+-----------
+ 31403DDX4 | 31402RUN7 |  1981264 | 2021-06-01 | 31402RUN7 |    5.5 |      35979419.88 |    0.01469 | 5.955 | 121 |  227 | 2022-04-01 | none      |        0 |         0
+ 31403DDX4 | 31402QYZ8 |  5134339 | 2021-06-01 | 31402QYZ8 |    5.5 |      62517539.35 | 0.01562938 | 5.897 | 140 |  209 | 2022-04-01 | none      |        0 |         0
+ 31403DDX4 | 31402RRP6 |   543177 | 2021-06-01 | 31402RRP6 |    5.5 |        4430726.5 | 0.01476909 | 5.954 | 144 |  206 | 2022-04-01 | none      |        0 |         0
+ 31403DDX4 | 31403DDR7 |   884316 | 2021-06-01 | 31403DDR7 |    5.5 |      19215724.57 | 0.01849203 | 5.938 | 138 |  210 | 2022-04-01 | none      |        0 |         0
+ 
+SELECT * from tbacheck where cusip = '31403DDR7';
+

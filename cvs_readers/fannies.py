@@ -25,6 +25,8 @@ with open(data_path, newline='') as csvfile:
 
     for row in data:
 
+        # print(row[17])
+        # break
         if row[34] != 'SCR' and row[37] != 'SCR':
 
             try:
@@ -34,6 +36,8 @@ with open(data_path, newline='') as csvfile:
                 issuedate = row[11]
                 maturitydate = row[12]
                 originalface = float(row[14])
+                coupon = float(row[16])
+                originalcoupon = float(row[17])
 
                 end_date = datetime(int(maturitydate[2:6]), int(
                     maturitydate[0:2]), 1)
@@ -46,18 +50,18 @@ with open(data_path, newline='') as csvfile:
 
                 istbaelig = 'none'
 
-                if originalface >= 250000 and num_months <= 181 and num_months > 120 and (indicator == 'CN' or indicator == 'CI'):
+                if (originalface >= 250000) and (num_months <= 181) and (indicator == 'CN' or indicator == 'CI') and (originalcoupon - coupon >= .25):
 
                     istbaelig = '15 year'
 
-                elif originalface >= 250000 and num_months > 181 and num_months <= 361 and (indicator == 'CL' or indicator == 'CT'):
+                elif (originalface >= 250000) and (num_months > 181) and (num_months <= 361) and (indicator == 'CL' or indicator == 'CT') and (originalcoupon - coupon >= .25):
 
                     istbaelig = '30 year'
 
                 head.append([cusip, name, indicator, start_date.date(),
                             end_date.date(), originalface, istbaelig])
 
-                coupon = row[16]
+                # coupon = row[16]
                 remainingbalance = row[15]
                 factor = row[4]
                 gwac = row[18]
