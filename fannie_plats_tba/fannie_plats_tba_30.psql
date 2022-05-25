@@ -1,0 +1,246 @@
+create or replace PROCEDURE srcfanniestbathirty( currmonth DATE )
+language plpgsql
+as
+$$
+declare
+   new real := 0;
+   old real := 0;
+begin
+
+  DROP TABLE IF EXISTS currfannies, currfanniestbafifteen, currfannieplatbodies,
+      platstbafifteen;
+
+  -- so this is just fannies with current face.. those without don't count I believe
+  CREATE TEMP TABLE currfannies AS
+  SELECT 
+      f.cusip,
+      f.name,
+      f.istbaelig
+  FROM fannies f
+  INNER JOIN fanniebodies b
+  ON f.cusip = b.cusip
+  WHERE remainingbalance > 0
+  AND date = currmonth;
+
+
+-- this is our 15 year tba eligible ones
+  CREATE TEMP TABLE currfanniestbafifteen AS
+  SELECT 
+      cusip,
+      istbaelig
+  FROM currfannies
+  WHERE istbaelig = '30 year';
+
+-- before we run this stored procedure we first run the none tba eligible one
+-- once it's been made none we don't want to touch it so we exclude them here 
+  CREATE TEMP TABLE currfannieplatbodies AS
+  SELECT cusip
+  FROM fannieplatbodies f
+  WHERE f.date = currmonth
+  AND istbaelig IS NULL;
+
+  -- here I am using the platinum as a through table 
+  -- this gets me the cusips of SRC fannies that are 15 year... we are going on the assumption that if it has not been 
+  CREATE TEMP TABLE platstbafifteen AS
+  SELECT f.cusip
+  FROM currfannieplatbodies f
+  INNER JOIN platinums p
+  ON f.cusip = p.platcusip
+  INNER JOIN currfanniestbafifteen c
+  ON p.poolcusip = c.cusip
+  GROUP BY f.cusip;
+
+    --  so this will update the first SRC fannies
+  UPDATE fannieplatbodies f
+  SET istbaelig = '30 year'
+  FROM platstbafifteen p
+  WHERE f.cusip = p.cusip
+  AND date = currmonth;
+
+  -- so old should the old number of 15 year tba eligible 
+  -- and new the new number so they both start as zero 
+  -- so this is the first new
+  SELECT COUNT(*)
+  INTO new
+  FROM fannieplatbodies f
+  WHERE istbaelig = '30 year'
+  AND date = currmonth;
+
+  
+  WHILE new > old loop
+    -- so from here we can send it into a while loop 
+    -- where we get our plats that are 15year  tba eligible check them againist the other plats 
+    -- and keep going until the count no longer grows
+
+    -- now it's old
+    SELECT COUNT(*)
+    INTO old
+    FROM fannieplatbodies f
+    WHERE istbaelig = '30 year'
+    AND date = currmonth;
+
+    DROP TABLE IF EXISTS platstbafifteen, moreplatstbafifteen;
+
+    -- now we can check againist SRC that are not tba eligible 
+    CREATE TEMP TABLE platstbafifteen AS
+    SELECT * 
+    FROM fannieplatbodies
+    WHERE istbaelig = '30 year'
+    AND date = currmonth;
+
+    -- so using platinum as through table checking SRC again SRC
+    CREATE TEMP TABLE moreplatstbafifteen AS
+    SELECT 
+        -- *
+        f.cusip
+    FROM currfannieplatbodies f
+    INNER JOIN platinums p
+    ON f.cusip = p.platcusip
+    INNER JOIN platstbafifteen c
+    ON p.poolcusip = c.cusip
+    GROUP BY f.cusip;
+
+  --  not as many and some are repeats but that is fine SELECT 4286
+
+    UPDATE fannieplatbodies f
+    SET istbaelig = '30 year'
+    FROM moreplatstbafifteen p
+    WHERE f.cusip = p.cusip;
+
+    -- we count again 
+    SELECT COUNT(*)
+    INTO new
+    FROM fannieplatbodies f
+    WHERE istbaelig = '30 year'
+    AND date = currmonth;
+
+  END loop; 
+
+  DROP TABLE IF EXISTS currfannies, currfanniestbafifteen, currfannieplatbodies,
+      platstbafifteen, moreplatstbafifteen;
+
+end;
+
+
+$$;
+
+
+call srcfanniestbathirty('2022-04-01');
+
+
+
+------------------------------------------------------------------------
+--  so here i was experimenting with counting the number of tba elgibiles and I was going to compare that with the total row but it should be a bit simpler  
+
+-- so to start I need the tba eligiity of all the pool fannies that still have current face
+
+CREATE TEMP TABLE currfannies AS
+SELECT 
+    f.cusip,
+    f.name,
+    f.istbaelig
+FROM fannies f
+INNER JOIN fanniebodies b
+ON f.cusip = b.cusip
+WHERE remainingbalance > 0
+AND date = '2022-04-01';
+-- LIMIT 1;
+
+
+-- so getting the tba of all the fannies
+CREATE TEMP TABLE currfanniestba AS
+SELECT 
+    cusip,
+    istbaelig
+FROM currfannies;
+-- SELECT 60060 not as many
+
+
+
+-- so now wee need to join this to our platinums on the poolcusip
+
+-- or should we join the platinums well we are joining both really 
+--  so this gets us started...
+-- great so this seems to work just fine... if a fannie cusip is in here it's tba eligibily is none and nothing can change that 
+-- at least till some of the pools are paid off 
+
+-- would need a table before that only got the current fannie plat bodies
+
+-- so ideally I should join these then count to make sure the number of tba eligible equals the number of rows
+
+CREATE TEMP TABLE platstba AS
+SELECT 
+  f.cusip,
+  p.poolcusip,
+  c.istbaelig
+FROM fannieplatbodies f
+INNER JOIN platinums p
+ON f.cusip = p.platcusip
+INNER JOIN currfanniestba c
+ON p.poolcusip = c.cusip;
+-- GROUP BY f.cusip;
+
+
+fannies=# SELECT * from platstba where istbaelig = '15 year' limit 5;
+   cusip   | poolcusip | istbaelig
+-----------+-----------+-----------
+ 31419AJ73 | 31371NKC8 | 15 year
+ 31419AD53 | 31371NKC8 | 15 year
+ 31418MVX7 | 31371NKC8 | 15 year
+ 31418MST0 | 31371NKC8 | 15 year
+ 31418MLS9 | 31371NKC8 | 15 year
+
+ SELECT * from platstba where cusip = '31418MLS9';
+
+-- lots all 15 year eligible 
+
+CREATE TEMP TABLE tbacheck AS
+SELECT 
+  cusip,
+  count(*) as count,
+  SUM(CASE 
+    WHEN istbaelig = '15 year' THEN 1
+    ELSE 0
+  END) AS tbafifteen,
+  SUM(CASE 
+    WHEN istbaelig = '30 year' THEN 1
+    ELSE 0
+  END) AS tbathirty,
+  SUM(CASE 
+    WHEN istbaelig = 'none' THEN 1
+    ELSE 0
+  END) AS tbanone  
+FROM platstba 
+-- WHERE cusip = '31418MLS9'
+GROUP BY cusip;
+
+SELECT *
+FROM tbacheck
+WHERE tbafifteen > 0
+AND tbafifteen < count;
+
+   cusip   | count | tbafifteen | tbathirty | tbanone
+-----------+-------+------------+-----------+---------
+ 3138ER6U9 |    13 |          5 |         0 |       8
+ 3138EHYK2 |     5 |          4 |         0 |       1
+ 3138ETWB8 |   273 |         40 |       204 |      29
+
+-- one that is mixed fifteen and 30 year 
+
+
+SELECT *
+FROM tbacheck
+WHERE tbathirty > 0
+AND tbathirty < count
+AND tbafifteen > 0;
+
+   cusip   | count | tbafifteen | tbathirty | tbanone
+-----------+-------+------------+-----------+---------
+ 3138ETWB8 |   273 |         40 |       204 |      29
+
+
+--  so this will update the first SRC fannies
+UPDATE fannieplatbodies f
+SET istbaelig = 'none'
+FROM platsnottba p
+WHERE f.cusip = p.cusip;

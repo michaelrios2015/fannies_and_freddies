@@ -295,6 +295,9 @@ ON f.cusip = p.poolcusip
 WHERE p.platcusip = '3140XA4S8'
 
 
+------------------------------------------------------------------------------
+--  i was looking for the pool what made a platinum not tba eligible... I just found platinums but not the underlying pool
+
 SELECT * 
 FROM platinums p
 INNER JOIN fannieplatbodies f

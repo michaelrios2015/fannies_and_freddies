@@ -1,0 +1,156 @@
+create or replace PROCEDURE srcfanniestbaall( currmonth DATE )
+language plpgsql
+as
+$$
+declare
+begin
+
+    -- I think this needs to go first but not 100 percent sure 
+    call srcfanniesnottba( currmonth );
+
+    call srcfanniestbafifteen( currmonth );
+
+    call srcfanniestbathirty( currmonth );
+
+end;
+
+
+$$;
+
+Call srcfanniestbaall('2022-04-01');
+
+-- should get these numbers 
+fannies=# SELECT COUNT(*) from fannieplatbodies where istbaelig = 'none';
+ count
+-------
+  9865
+(1 row)
+
+
+fannies=# SELECT COUNT(*) from fannieplatbodies where istbaelig = '15 year';
+ count
+-------
+  4890
+(1 row)
+
+
+fannies=# SELECT COUNT(*) from fannieplatbodies;
+ count
+-------
+ 34672
+(1 row)
+
+SELECT 
+    b.cusip,
+    b.istbaelig
+FROM fannieplatbodies b
+INNER JOIN fannieplats f
+ON b.cusip = f.cusip
+ORDER BY name ASC
+LIMIT 5;
+
+   cusip   | istbaelig
+-----------+-----------
+ 31362S5F8 | none
+ 31362S5N1 | none
+ 31362S5W1 | none
+ 31362S6M2 | none
+ 31362S6N0 | none
+
+ 
+SELECT 
+    b.cusip,
+    b.istbaelig
+FROM fannieplatbodies b
+INNER JOIN fannieplats f
+ON b.cusip = f.cusip
+WHERE istbaelig = 'none'
+ORDER BY name DESC
+LIMIT 5;
+
+   cusip   | istbaelig
+-----------+-----------
+ 3140XA6L1 | none
+ 3140XAS45 | none
+ 3140XAST0 | none
+ 3140XAPC0 | none
+ 3140XAAR3 | none
+
+
+ 
+SELECT 
+    b.cusip,
+    b.istbaelig
+FROM fannieplatbodies b
+INNER JOIN fannieplats f
+ON b.cusip = f.cusip
+WHERE istbaelig = '15 year'
+ORDER BY name ASC
+LIMIT 5;
+
+   cusip   | istbaelig
+-----------+-----------
+ 31374CNC6 | 15 year
+ 31374CNM4 | 15 year
+ 31374CNS1 | 15 year
+ 31374CNT9 | 15 year
+ 31374CN44 | 15 year
+
+ 
+SELECT 
+    b.cusip,
+    b.istbaelig
+FROM fannieplatbodies b
+INNER JOIN fannieplats f
+ON b.cusip = f.cusip
+WHERE istbaelig = '15 year'
+ORDER BY name DESC
+LIMIT 5;
+
+   cusip   | istbaelig
+-----------+-----------
+ 3140XTAA9 | 15 year
+ 3140XBCW8 | 15 year
+ 3140XBCV0 | 15 year
+ 3140XBCB4 | 15 year
+ 3140XBB74 | 15 year
+
+
+ 
+SELECT 
+    b.cusip,
+    b.istbaelig
+FROM fannieplatbodies b
+INNER JOIN fannieplats f
+ON b.cusip = f.cusip
+WHERE istbaelig = '30 year'
+ORDER BY name ASC
+LIMIT 5;
+
+   cusip   | istbaelig
+-----------+-----------
+ 31365CZK6 | 30 year
+ 31365CZL4 | 30 year
+ 31365CZ91 | 30 year
+ 31365C2D8 | 30 year
+ 31365C2T3 | 30 year
+
+
+ 
+SELECT 
+    b.cusip,
+    b.istbaelig
+FROM fannieplatbodies b
+INNER JOIN fannieplats f
+ON b.cusip = f.cusip
+WHERE istbaelig = '30 year'
+ORDER BY name DESC
+LIMIT 5;
+
+   cusip   | istbaelig
+-----------+-----------
+ 3140XTAD3 | 30 year
+ 3140XTAC5 | 30 year
+ 3140XTAB7 | 30 year
+ 3140XBCU2 | 30 year
+ 3140XBCS7 | 30 year
