@@ -25,7 +25,15 @@ with open(data_path, newline='') as csvfile:
     head = []
     body = []
 
+    headplats = []
+    bodyplats = []
+
     for row in data:
+
+        # print(row[17])
+        # print(row[34])
+        # print(row[37])
+        # break
 
         try:
             cusip = row[2]
@@ -33,10 +41,10 @@ with open(data_path, newline='') as csvfile:
             indicator = row[0]
             issuedate = row[11]
             maturitydate = row[12]
-            # if row[14] == '':
-            #     originalface = 0
-            # else:
             originalface = float(row[14])
+
+            coupon = float(row[16])
+            original_coupon = float(row[17])
 
             # print(cusip)
             # print(name)
@@ -64,28 +72,37 @@ with open(data_path, newline='') as csvfile:
 
             istbaelig = 'none'
 
-            if originalface >= 250000 and num_months <= 181 and num_months > 120 and (indicator == 'CN' or indicator == 'CI'):
+            if (originalface >= 250000) and (num_months <= 181) and (indicator == 'CN' or indicator == 'CI') and (original_coupon - coupon >= .25):
 
                 istbaelig = '15 year'
 
-            elif originalface >= 250000 and num_months > 181 and num_months <= 361 and (indicator == 'CL' or indicator == 'CT'):
+            elif (originalface >= 250000) and (num_months > 181) and (num_months <= 361) and (indicator == 'CL' or indicator == 'CT') and (original_coupon - coupon >= .25):
 
                 istbaelig = '30 year'
 
+#################################
             # print(istbaelig)
-
-            head.append([cusip, name, indicator, start_date.date(),
-                        end_date.date(), originalface, istbaelig])
-
-            coupon = row[16]
             remainingbalance = row[15]
             factor = row[4]
             gwac = row[18]
             wam = row[22]
             wala = row[23]
 
-            body.append([cusip, coupon, remainingbalance,
-                        factor, gwac, wam, wala, date])
+            if row[34] != 'SCR' and row[34] != 'SCR':
+
+                head.append([cusip, name, indicator, start_date.date(),
+                            end_date.date(), originalface, istbaelig])
+
+                body.append([cusip, coupon, remainingbalance,
+                            factor, gwac, wam, wala, date])
+
+            else:
+
+                headplats.append([cusip, name, indicator, start_date.date(),
+                                  end_date.date(), originalface])
+
+                bodyplats.append([cusip, coupon, remainingbalance,
+                                  factor, gwac, wam, wala, date, None])
 
         except Exception as e:
             # we seem to get a couple of very new supers (like platinums) each month
@@ -119,6 +136,34 @@ with open('cvs_readers/data/output/freddiebodies.cvs', 'w', newline='') as csvfi
     # writing the data rows
     csvwriter.writerows(body)
 
+headfields = ["cusip", "name", "indicator", "issuedate",
+              "maturitydate", "originalface"]
+
+
+with open('cvs_readers/data/output/freddieplats.cvs', 'w', newline='') as csvfile:
+    # creating a csv writer object
+    csvwriter = csv.writer(csvfile)
+
+    # writing the fields
+    csvwriter.writerow(headfields)
+
+    # writing the data rows
+    csvwriter.writerows(headplats)
+
+
+bodyFields = ["cusip", "coupon", "remainingbalance",
+              "factor", "gwac", "wam", "wala", "date", "istbaelig"]
+
+with open('cvs_readers/data/output/freddiebodieplats.cvs', 'w', newline='') as csvfile:
+    # creating a csv writer object
+    csvwriter = csv.writer(csvfile)
+
+    # writing the fields
+    csvwriter.writerow(bodyFields)
+
+    # writing the data rows
+    csvwriter.writerows(bodyplats)
+
 
 # connecting to database
 # what is autocommit
@@ -148,6 +193,35 @@ ON CONFLICT (cusip)
 DO NOTHING;
 
 DROP TABLE freddiestemp;
+'''
+
+cursor.execute(sql)
+
+###################################################
+
+csv_file_name = 'cvs_readers/data/output/freddiebodieplats.cvs'
+sql = "COPY freddieplatbodies FROM STDIN DELIMITER ',' CSV HEADER"
+cursor.copy_expert(sql, open(csv_file_name, "r"))
+
+sql = '''
+create temporary table freddieplatstemp (cusip varchar, name varchar , indicator varchar, issuedate date, maturitydate date, originalface double precision);
+'''
+cursor.execute(sql)
+
+# maybe there is an easier way to do this but I don't know it
+csv_file_name = 'cvs_readers/data/output/freddieplats.cvs'
+sql = "COPY freddieplatstemp FROM STDIN DELIMITER ',' CSV HEADER"
+cursor.copy_expert(sql, open(csv_file_name, "r"))
+
+
+sql = '''
+INSERT INTO freddieplats (cusip, name, indicator, issuedate, maturitydate, originalface)
+SELECT cusip, name, indicator, issuedate, maturitydate, originalface
+FROM freddieplatstemp
+ON CONFLICT (cusip)
+DO NOTHING;
+
+DROP TABLE freddieplatstemp;
 '''
 
 cursor.execute(sql)

@@ -117,6 +117,31 @@ CREATE TABLE IF NOT EXISTS freddiebodies (
 );
 
 
+CREATE TABLE IF NOT EXISTS freddieplats (
+    cusip VARCHAR PRIMARY KEY,
+    name VARCHAR,
+    indicator VARCHAR,
+    issuedate DATE,
+    maturitydate DATE,
+    originalface DOUBLE PRECISION
+);
+
+
+CREATE TABLE IF NOT EXISTS freddieplatbodies (
+    cusip VARCHAR,
+    coupon DOUBLE PRECISION,
+    remainingbalance DOUBLE PRECISION,
+    Factor DOUBLE PRECISION,
+    gwac DOUBLE PRECISION,
+    wam INTEGER,
+    wala INTEGER,
+    date DATE,
+    istbaelig istbaelig_type,  
+    PRIMARY KEY (cusip, date)
+);
+
+
+
 cusip,name,indicator,issuedate,maturitydate,originalface,istbaelig
 31296JAA4,A10001,A1,2003-06-01,2033-06-01,1155395.0,none
 
