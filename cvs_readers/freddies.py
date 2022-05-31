@@ -88,21 +88,22 @@ with open(data_path, newline='') as csvfile:
             wam = row[22]
             wala = row[23]
 
-            if row[34] != 'SCR' and row[34] != 'SCR':
-
-                head.append([cusip, name, indicator, start_date.date(),
-                            end_date.date(), originalface, istbaelig])
-
-                body.append([cusip, coupon, remainingbalance,
-                            factor, gwac, wam, wala, date])
-
-            else:
+# we have two kinds of plats SCR or SCR - Mirrors so we are using starts with to find both of them
+            if row[34].startswith('SCR') or row[37].startswith('SCR') or row[34] == 'Multiple' or row[37] == 'Multiple':
 
                 headplats.append([cusip, name, indicator, start_date.date(),
                                   end_date.date(), originalface])
 
                 bodyplats.append([cusip, coupon, remainingbalance,
                                   factor, gwac, wam, wala, date, None])
+
+            else:
+
+                head.append([cusip, name, indicator, start_date.date(),
+                            end_date.date(), originalface, istbaelig])
+
+                body.append([cusip, coupon, remainingbalance,
+                            factor, gwac, wam, wala, date])
 
         except Exception as e:
             # we seem to get a couple of very new supers (like platinums) each month

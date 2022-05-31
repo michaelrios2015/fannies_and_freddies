@@ -1,0 +1,26 @@
+create or replace PROCEDURE srcfreddiestbaall( currmonth DATE )
+language plpgsql
+as
+$$
+declare
+begin
+
+    -- I think this needs to go first but not 100 percent sure 
+    call srcfreddiesnottba( currmonth );
+
+    call srcfreddiestbafifteen( currmonth );
+
+    call srcfreddiestbathirty( currmonth );
+
+end;
+
+
+$$;
+
+Call srcfreddiestbaall('2022-02-04');
+
+UPDATE freddieplatbodies
+SET istbaelig = NULL
+
+
+-- Seems to check out getting the same results as when I did them one by one

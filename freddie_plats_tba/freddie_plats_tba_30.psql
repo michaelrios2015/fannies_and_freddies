@@ -1,0 +1,162 @@
+-- so the names aree really bad here again I should have one stored procedure that can take table names and enums value instead I have 6 
+-- which for our purposes is a ok 
+
+create or replace PROCEDURE srcfreddiestbathirty( currmonth DATE )
+language plpgsql
+as
+$$
+declare
+   new real := 0;
+   old real := 0;
+begin
+
+  DROP TABLE IF EXISTS currfannies, currfanniestbafifteen, currfannieplatbodies,
+      platstbafifteen;
+
+  -- so this is just fannies with current face.. those without don't count I believe
+  CREATE TEMP TABLE currfannies AS
+  SELECT 
+      f.cusip,
+      f.name,
+      f.istbaelig
+  FROM freddies f
+  INNER JOIN freddiebodies b
+  ON f.cusip = b.cusip
+  WHERE remainingbalance > 0
+  AND date = currmonth;
+
+
+-- this is our 15 year tba eligible ones
+  CREATE TEMP TABLE currfanniestbafifteen AS
+  SELECT 
+      cusip,
+      istbaelig
+  FROM currfannies
+  WHERE istbaelig = '30 year';
+
+-- before we run this stored procedure we first run the none tba eligible one
+-- once it's been made none we don't want to touch it so we exclude them here 
+  CREATE TEMP TABLE currfannieplatbodies AS
+  SELECT cusip
+  FROM freddieplatbodies f
+  WHERE f.date = currmonth
+  AND istbaelig IS NULL;
+
+  -- here I am using the platinum as a through table 
+  -- this gets me the cusips of SRC fannies that are 15 year... we are going on the assumption that if it has not been 
+  CREATE TEMP TABLE platstbafifteen AS
+  SELECT f.cusip
+  FROM currfannieplatbodies f
+  INNER JOIN platinums p
+  ON f.cusip = p.platcusip
+  INNER JOIN currfanniestbafifteen c
+  ON p.poolcusip = c.cusip
+  GROUP BY f.cusip;
+
+    --  so this will update the first SRC fannies
+  UPDATE freddieplatbodies f
+  SET istbaelig = '30 year'
+  FROM platstbafifteen p
+  WHERE f.cusip = p.cusip
+  AND date = currmonth;
+
+  -- so old should the old number of 15 year tba eligible 
+  -- and new the new number so they both start as zero 
+  -- so this is the first new
+  SELECT COUNT(*)
+  INTO new
+  FROM freddieplatbodies f
+  WHERE istbaelig = '30 year'
+  AND date = currmonth;
+
+  
+  WHILE new > old loop
+    -- so from here we can send it into a while loop 
+    -- where we get our plats that are 15year  tba eligible check them againist the other plats 
+    -- and keep going until the count no longer grows
+
+    -- now it's old
+    SELECT COUNT(*)
+    INTO old
+    FROM freddieplatbodies f
+    WHERE istbaelig = '30 year'
+    AND date = currmonth;
+
+    DROP TABLE IF EXISTS platstbafifteen, moreplatstbafifteen;
+
+    -- now we can check againist SRC that are not tba eligible 
+    CREATE TEMP TABLE platstbafifteen AS
+    SELECT * 
+    FROM freddieplatbodies
+    WHERE istbaelig = '30 year'
+    AND date = currmonth;
+
+    -- so using platinum as through table checking SRC again SRC
+    CREATE TEMP TABLE moreplatstbafifteen AS
+    SELECT 
+        -- *
+        f.cusip
+    FROM currfannieplatbodies f
+    INNER JOIN platinums p
+    ON f.cusip = p.platcusip
+    INNER JOIN platstbafifteen c
+    ON p.poolcusip = c.cusip
+    GROUP BY f.cusip;
+
+  --  not as many and some are repeats but that is fine SELECT 4286
+
+    UPDATE freddieplatbodies f
+    SET istbaelig = '30 year'
+    FROM moreplatstbafifteen p
+    WHERE f.cusip = p.cusip;
+
+    -- we count again 
+    SELECT COUNT(*)
+    INTO new
+    FROM freddieplatbodies f
+    WHERE istbaelig = '30 year'
+    AND date = currmonth;
+
+  END loop; 
+
+  DROP TABLE IF EXISTS currfannies, currfanniestbafifteen, currfannieplatbodies,
+      platstbafifteen, moreplatstbafifteen;
+
+end;
+
+
+$$;
+
+
+call srcfreddiestbathirty('2022-02-04');
+
+
+fannies=# SELECT COUNT(*) from freddieplatbodies where istbaelig = '30 year';
+ count
+-------
+   438
+(1 row)
+
+
+fannies=# SELECT * from freddieplatbodies where istbaelig = '30 year' LIMIT 3;
+   cusip   | coupon | remainingbalance |   factor   | gwac  | wam | wala |    date    | istbaelig
+-----------+--------+------------------+------------+-------+-----+------+------------+-----------
+ 3132DV5R2 |      3 |     2004404104.6 | 0.32350705 | 3.858 | 332 |   23 | 2022-02-04 | 30 year
+ 3132DV6R1 |      2 |    4929551426.77 | 0.68480368 | 3.029 | 334 |   21 | 2022-02-04 | 30 year
+ 3132DV4B8 |      4 |      101133836.9 |  0.2523767 | 4.879 | 326 |   30 | 2022-02-04 | 30 year
+
+
+SELECT *
+from freddieplatbodies f
+INNER JOIN platinums p
+ON f.cusip = p.platcusip
+INNER JOIN freddies a
+ON p.poolcusip = a.cusip
+WHERE f.cusip = '3132DV4B8';
+
+   cusip   | coupon | remainingbalance |  factor   | gwac  | wam | wala |    date    | istbaelig | platcusip | poolcusip | ofinplat  |    date    |   cusip   |  name  | indicator | issuedate  | maturitydate | originalface | istbaelig
+-----------+--------+------------------+-----------+-------+-----+------+------------+-----------+-----------+-----------+-----------+------------+-----------+--------+-----------+------------+--------------+--------------+-----------
+ 3132DV4B8 |      4 |      101133836.9 | 0.2523767 | 4.879 | 326 |   30 | 2022-02-04 | 30 year   | 3132DV4B8 | 3133KFAT7 | 260804647 | 2021-06-01 | 3133KFAT7 | RA0018 | CL        | 2019-09-01 | 2049-10-01   |    260804669 | 30 year
+ 3132DV4B8 |      4 |      101133836.9 | 0.2523767 | 4.879 | 326 |   30 | 2022-02-04 | 30 year   | 3132DV4B8 | 3133KGSZ2 | 139921084 | 2021-06-01 | 3133KGSZ2 | RA1436 | CL        | 2019-09-01 | 2049-09-01   |    139921084 | 30 year
+
+--  seems to work like it's supposed to 

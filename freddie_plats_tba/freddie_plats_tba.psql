@@ -1,0 +1,154 @@
+
+-- this is stolen from scr FANNIES not tba if I underttood stored procedures better I am sure I would not even need this 
+-- I would have one function and just tell it what tables we were using... I do not know how to do that so here I am 
+-- anyway since I am lazy I am not going to rename ny temp files ... so forgive the bad namig convention
+
+create or replace PROCEDURE srcfreddiesnottba( currmonth DATE )
+language plpgsql
+as
+$$
+declare
+   new real := 0;
+   old real := 0;
+begin
+
+  DROP TABLE IF EXISTS currfannies, currfanniesnottba, currfannieplatbodies,
+      platsnottba;
+
+-- so to start I need the tba eligiity of all the pool fannies that still have current face
+  CREATE TEMP TABLE currfannies AS
+  SELECT 
+      f.cusip,
+      f.name,
+      f.istbaelig
+  FROM freddies f
+  INNER JOIN freddiebodies b
+  ON f.cusip = b.cusip
+  WHERE remainingbalance > 0
+  AND date = currmonth;
+
+
+  -- so these immediately kill any platinum they are a part of
+  -- so I put thiem in one group
+  CREATE TEMP TABLE currfanniesnottba AS
+  SELECT 
+      cusip,
+      istbaelig
+  FROM currfannies
+  WHERE istbaelig = 'none';
+
+  CREATE TEMP TABLE currfannieplatbodies AS
+  SELECT cusip
+  FROM freddieplatbodies f
+  WHERE f.date = currmonth;
+
+  -- here I am using the platinum as a through table 
+  -- this gets me the cusips of SRC fannies that are definitly not TBA
+  CREATE TEMP TABLE platsnottba AS
+  SELECT f.cusip
+  FROM currfannieplatbodies f
+  INNER JOIN platinums p
+  ON f.cusip = p.platcusip
+  INNER JOIN currfanniesnottba c
+  ON p.poolcusip = c.cusip
+  GROUP BY f.cusip;
+
+    --  so this will update the first SRC fannies
+  UPDATE freddieplatbodies f
+  SET istbaelig = 'none'
+  FROM platsnottba p
+  WHERE f.cusip = p.cusip
+  AND date = currmonth;
+
+  -- so old should the old number of non tba eligible 
+  -- and new the new number so they both start as zero 
+  -- so this is the first new
+  SELECT COUNT(*)
+  INTO new
+  FROM freddieplatbodies f
+  WHERE istbaelig = 'none'
+  AND date = currmonth;
+
+  RAISE NOTICE 'new: %.',new;
+
+  
+  WHILE new > old loop
+    -- so from here we can send it into a while loop 
+    -- where we get our plats that are not tba eligible check them againist the other plats 
+    -- and keep going until the count no longer grows
+
+    -- now it's old
+    SELECT COUNT(*)
+    INTO old
+    FROM freddieplatbodies f
+    WHERE istbaelig = 'none'
+    AND date = currmonth;
+
+    DROP TABLE IF EXISTS platsnottba, moreplatsnottba;
+
+    -- now we can check againist SRC that are not tba eligible 
+    CREATE TEMP TABLE platsnottba AS
+    SELECT * 
+    FROM freddieplatbodies
+    WHERE istbaelig = 'none'
+    AND date = currmonth;
+
+    -- so using platinum as through table checking SRC again SRC
+    CREATE TEMP TABLE moreplatsnottba AS
+    SELECT 
+        -- *
+        f.cusip
+    FROM currfannieplatbodies f
+    INNER JOIN platinums p
+    ON f.cusip = p.platcusip
+    INNER JOIN platsnottba c
+    ON p.poolcusip = c.cusip
+    GROUP BY f.cusip;
+
+  --  not as many and some are repeats but that is fine SELECT 4286
+
+    UPDATE freddieplatbodies f
+    SET istbaelig = 'none'
+    FROM moreplatsnottba p
+    WHERE f.cusip = p.cusip;
+
+    -- we count again 
+    SELECT COUNT(*)
+    INTO new
+    FROM freddieplatbodies f
+    WHERE istbaelig = 'none'
+    AND date = currmonth;
+
+  END loop; 
+  
+  DROP TABLE IF EXISTS currfannies, currfanniesnottba, currfannieplatbodies,
+      platsnottba, moreplatsnottba;
+
+end;
+
+
+$$;
+
+
+
+call srcfreddiesnottba('2022-02-04');
+
+
+SELECT *
+from freddieplatbodies f
+INNER JOIN platinums p
+ON f.cusip = p.platcusip
+WHERE f.cusip = '31281AD58';
+
+   cusip   | coupon | remainingbalance |   factor   | gwac | wam | wala |    date    | istbaelig | platcusip | poolcusip | ofinplat |    date
+-----------+--------+------------------+------------+------+-----+------+------------+-----------+-----------+-----------+----------+------------
+ 31281AD58 |      5 |         83937.57 | 0.00419672 |  5.5 | 123 |  230 | 2022-02-04 | none      | 31281AD58 | 31281BA91 |  3488284 | 2021-06-01
+(1 row)
+
+
+fannies=# SELECT * from freddies where cusip = '31281BA91';
+   cusip   |  name  | indicator | issuedate  | maturitydate | originalface | istbaelig
+-----------+--------+-----------+------------+--------------+--------------+-----------
+ 31281BA91 | N30932 | N3        | 2002-12-01 | 2032-12-01   |      3488284 | none
+
+--  seems to be right at least according to this input... my input may be wrong... but that's ok this stored produre should not have to change 

@@ -1,0 +1,187 @@
+-- so you can read everything in freddies_plats_tba... essentially this is just a stolen stored procedure with some bad names becuase really
+-- I should know how to pass in table names and enum values... but I don't 
+
+create or replace PROCEDURE srcfreddiestbafifteen( currmonth DATE )
+language plpgsql
+as
+$$
+declare
+   new real := 0;
+   old real := 0;
+begin
+
+  DROP TABLE IF EXISTS currfannies, currfanniestbafifteen, currfannieplatbodies,
+      platstbafifteen;
+
+  -- so this is just fannies with current face.. those without don't count I believe
+  CREATE TEMP TABLE currfannies AS
+  SELECT 
+      f.cusip,
+      f.name,
+      f.istbaelig
+  FROM freddies f
+  INNER JOIN freddiebodies b
+  ON f.cusip = b.cusip
+  WHERE remainingbalance > 0
+  AND date = currmonth;
+
+
+-- this is our 15 year tba eligible ones
+  CREATE TEMP TABLE currfanniestbafifteen AS
+  SELECT 
+      cusip,
+      istbaelig
+  FROM currfannies
+  WHERE istbaelig = '15 year';
+
+-- before we run this stored procedure we first run the none tba eligible one
+-- once it's been made none we don't want to touch it so we exclude them here 
+  CREATE TEMP TABLE currfannieplatbodies AS
+  SELECT cusip
+  FROM freddieplatbodies f
+  WHERE f.date = currmonth
+  AND istbaelig IS NULL;
+
+  -- here I am using the platinum as a through table 
+  -- this gets me the cusips of SRC fannies that are 15 year... we are going on the assumption that if it has not been 
+  CREATE TEMP TABLE platstbafifteen AS
+  SELECT f.cusip
+  FROM currfannieplatbodies f
+  INNER JOIN platinums p
+  ON f.cusip = p.platcusip
+  INNER JOIN currfanniestbafifteen c
+  ON p.poolcusip = c.cusip
+  GROUP BY f.cusip;
+
+    --  so this will update the first SRC fannies
+  UPDATE freddieplatbodies f
+  SET istbaelig = '15 year'
+  FROM platstbafifteen p
+  WHERE f.cusip = p.cusip
+  AND date = currmonth;
+
+  -- so old should the old number of 15 year tba eligible 
+  -- and new the new number so they both start as zero 
+  -- so this is the first new
+  SELECT COUNT(*)
+  INTO new
+  FROM freddieplatbodies f
+  WHERE istbaelig = '15 year'
+  AND date = currmonth;
+
+  
+  WHILE new > old loop
+    -- so from here we can send it into a while loop 
+    -- where we get our plats that are 15year  tba eligible check them againist the other plats 
+    -- and keep going until the count no longer grows
+
+    -- now it's old
+    SELECT COUNT(*)
+    INTO old
+    FROM freddieplatbodies f
+    WHERE istbaelig = '15 year'
+    AND date = currmonth;
+
+    DROP TABLE IF EXISTS platstbafifteen, moreplatstbafifteen;
+
+    -- now we can check againist SRC that are not tba eligible 
+    CREATE TEMP TABLE platstbafifteen AS
+    SELECT * 
+    FROM freddieplatbodies
+    WHERE istbaelig = '15 year'
+    AND date = currmonth;
+
+    -- so using platinum as through table checking SRC again SRC
+    CREATE TEMP TABLE moreplatstbafifteen AS
+    SELECT 
+        -- *
+        f.cusip
+    FROM currfannieplatbodies f
+    INNER JOIN platinums p
+    ON f.cusip = p.platcusip
+    INNER JOIN platstbafifteen c
+    ON p.poolcusip = c.cusip
+    GROUP BY f.cusip;
+
+  --  not as many and some are repeats but that is fine SELECT 4286
+
+    UPDATE freddieplatbodies f
+    SET istbaelig = '15 year'
+    FROM moreplatstbafifteen p
+    WHERE f.cusip = p.cusip;
+
+    -- we count again 
+    SELECT COUNT(*)
+    INTO new
+    FROM freddieplatbodies f
+    WHERE istbaelig = '15 year'
+    AND date = currmonth;
+
+  END loop; 
+
+  DROP TABLE IF EXISTS currfannies, currfanniestbafifteen, currfannieplatbodies,
+      platstbafifteen, moreplatstbafifteen;
+
+end;
+
+
+$$;
+
+
+ count
+-------
+   369
+(1 row)
+
+call srcfreddiestbafifteen('2022-02-04');
+
+fannies=# SELECT * FROM freddieplatbodies where istbaelig ='15 year' LIMIT 2;
+   cusip   | coupon | remainingbalance |   factor   | gwac  | wam | wala |    date    | istbaelig
+-----------+--------+------------------+------------+-------+-----+------+------------+-----------
+ 3132D6NS5 |      2 |    1152690193.31 |  0.7775175 | 2.678 | 154 |   20 | 2022-02-04 | 15 year
+ 3132D54P4 |      2 |      79987262.91 | 0.48790933 | 2.704 | 148 |   27 | 2022-02-04 | 15 year
+
+
+
+SELECT *
+from freddieplatbodies f
+INNER JOIN platinums p
+ON f.cusip = p.platcusip
+INNER JOIN freddies a
+ON p.poolcusip = a.cusip
+WHERE f.cusip = '3132D6NS5';
+
+fannies-# WHERE f.cusip = '3132D6NS5';
+   cusip   | coupon | remainingbalance |  factor   | gwac  | wam | wala |    date    | istbaelig | platcusip | poolcusip | ofinplat  |    date    |   cusip   |  name  | indicator | issuedate  | maturitydate | originalface | istbaelig
+-----------+--------+------------------+-----------+-------+-----+------+------------+-----------+-----------+-----------+-----------+------------+-----------+--------+-----------+------------+--------------+--------------+-----------
+ 3132D6NS5 |      2 |    1152690193.31 | 0.7775175 | 2.678 | 154 |   20 | 2022-02-04 | 15 year   | 3132D6NS5 | 3133G82B6 |   8327231 | 2021-06-01 | 3133G82B6 | QN2570 | CI        | 2020-06-01 | 2035-06-01   |      8327231 | 15 year
+ 3132D6NS5 |      2 |    1152690193.31 | 0.7775175 | 2.678 | 154 |   20 | 2022-02-04 | 15 year   | 3132D6NS5 | 3133G83G4 |   1883055 | 2021-06-01 | 3133G83G4 | QN2599 | CI        | 2020-06-01 | 2035-06-01   |      1883055 | 15 year
+ 3132D6NS5 |      2 |    1152690193.31 | 0.7775175 | 2.678 | 154 |   20 | 2022-02-04 | 15 year   | 3132D6NS5 | 3133G83W9 |   2388436 | 2021-06-01 | 3133G83W9 | QN2613 | CI        | 2020-06-01 | 2035-07-01   |      2388436 | 15 year
+ 3132D6NS5 |      2 |    1152690193.31 | 0.7775175 | 2.678 | 154 |   20 | 2022-02-04 | 15 year   | 3132D6NS5 | 3133G83X7 |   3699921 | 2021-06-01 | 3133G83X7 | QN2614 | CI        | 2020-06-01 | 2035-07-01   |      3699921 | 15 year
+ 3132D6NS5 |      2 |    1152690193.31 | 0.7775175 | 2.678 | 154 |   20 | 2022-02-04 | 15 year   | 3132D6NS5 | 3133G86E6 |   2736800 | 2021-06-01 | 3133G86E6 | QN2669 | CI        | 2020-07-01 | 2035-07-01   |      2736800 | 15 year
+ 3132D6NS5 |      2 |    1152690193.31 | 0.7775175 | 2.678 | 154 |   20 | 2022-02-04 | 15 year   | 3132D6NS5 | 3133G8NR8 |   1871655 | 2021-06-01 | 3133G8NR8 | QN2200 | CI        | 2020-05-01 | 2035-05-01   |      1871655 | 15 year
+ 3132D6NS5 |      2 |    1152690193.31 | 0.7775175 | 2.678 | 154 |   20 | 2022-02-04 | 15 year   | 3132D6NS5 | 3133G8NS6 |   2050698 | 2021-06-01 | 3133G8NS6 | QN2201 | CI        | 2020-05-01 | 2035-05-01   |      2050698 | 15 year
+ 3132D6NS5 |      2 |    1152690193.31 | 0.7775175 | 2.678 | 154 |   20 | 2022-02-04 | 15 year   | 3132D6NS5 | 3133G8QY0 |   1299092 | 2021-06-01 | 3133G8QY0 | QN2271 | CI        | 2020-05-01 | 2035-05-01   |      1299092 | 15 year
+ 3132D6NS5 |      2 |    1152690193.31 | 0.7775175 | 2.678 | 154 |   20 | 2022-02-04 | 15 year   | 3132D6NS5 | 3133G8RU7 |   1875294 | 2021-06-01 | 3133G8RU7 | QN2299 | CI        | 2020-05-01 | 2035-05-01   |      1875294 | 15 year
+ 3132D6NS5 |      2 |    1152690193.31 | 0.7775175 | 2.678 | 154 |   20 | 2022-02-04 | 15 year   | 3132D6NS5 | 3133G8TQ4 |   2446495 | 2021-06-01 | 3133G8TQ4 | QN2359 | CI        | 2020-05-01 | 2035-06-01   |      2446495 | 15 year
+ 3132D6NS5 |      2 |    1152690193.31 | 0.7775175 | 2.678 | 154 |   20 | 2022-02-04 | 15 year   | 3132D6NS5 | 3133G8UU3 |   1564712 | 2021-06-01 | 3133G8UU3 | QN2395 | CI        | 2020-06-01 | 2035-06-01   |      1564712 | 15 year
+ 3132D6NS5 |      2 |    1152690193.31 | 0.7775175 | 2.678 | 154 |   20 | 2022-02-04 | 15 year   | 3132D6NS5 | 3133G8V40 |   1903698 | 2021-06-01 | 3133G8V40 | QN2435 | CI        | 2020-06-01 | 2035-06-01   |      1903698 | 15 year
+ 3132D6NS5 |      2 |    1152690193.31 | 0.7775175 | 2.678 | 154 |   20 | 2022-02-04 | 15 year   | 3132D6NS5 | 3133G8X22 |   3038202 | 2021-06-01 | 3133G8X22 | QN2497 | CI        | 2020-06-01 | 2035-06-01   |      3038202 | 15 year
+ 3132D6NS5 |      2 |    1152690193.31 | 0.7775175 | 2.678 | 154 |   20 | 2022-02-04 | 15 year   | 3132D6NS5 | 3133G8X71 |  16003213 | 2021-06-01 | 3133G8X71 | QN2502 | CI        | 2020-06-01 | 2035-06-01   |     16003213 | 15 year
+ 3132D6NS5 |      2 |    1152690193.31 | 0.7775175 | 2.678 | 154 |   20 | 2022-02-04 | 15 year   | 3132D6NS5 | 3133G8XH9 |   2854136 | 2021-06-01 | 3133G8XH9 | QN2480 | CI        | 2020-06-01 | 2035-06-01   |      2854136 | 15 year
+ 3132D6NS5 |      2 |    1152690193.31 | 0.7775175 | 2.678 | 154 |   20 | 2022-02-04 | 15 year   | 3132D6NS5 | 3133G8YT2 |   1019616 | 2021-06-01 | 3133G8YT2 | QN2522 | CI        | 2020-06-01 | 2035-06-01   |      1019616 | 15 year
+ 3132D6NS5 |      2 |    1152690193.31 | 0.7775175 | 2.678 | 154 |   20 | 2022-02-04 | 15 year   | 3132D6NS5 | 3133G8ZL8 |   2674804 | 2021-06-01 | 3133G8ZL8 | QN2547 | CI        | 2020-06-01 | 2035-07-01   |      2674804 | 15 year
+ 3132D6NS5 |      2 |    1152690193.31 | 0.7775175 | 2.678 | 154 |   20 | 2022-02-04 | 15 year   | 3132D6NS5 | 3133G8ZQ7 |   6574512 | 2021-06-01 | 3133G8ZQ7 | QN2551 | CI        | 2020-06-01 | 2035-07-01   |      6574512 | 15 year
+ 3132D6NS5 |      2 |    1152690193.31 | 0.7775175 | 2.678 | 154 |   20 | 2022-02-04 | 15 year   | 3132D6NS5 | 3133G9AR0 |   3523349 | 2021-06-01 | 3133G9AR0 | QN2716 | CI        | 2020-07-01 | 2035-07-01   |      3523349 | 15 year
+ 3132D6NS5 |      2 |    1152690193.31 | 0.7775175 | 2.678 | 154 |   20 | 2022-02-04 | 15 year   | 3132D6NS5 | 3133G9CX5 |  35242927 | 2021-06-01 | 3133G9CX5 | QN2786 | CI        | 2020-07-01 | 2035-07-01   |     35242927 | 15 year
+ 3132D6NS5 |      2 |    1152690193.31 | 0.7775175 | 2.678 | 154 |   20 | 2022-02-04 | 15 year   | 3132D6NS5 | 3133G9EA3 |   9593245 | 2021-06-01 | 3133G9EA3 | QN2829 | CI        | 2020-07-01 | 2035-07-01   |      9593245 | 15 year
+ 3132D6NS5 |      2 |    1152690193.31 | 0.7775175 | 2.678 | 154 |   20 | 2022-02-04 | 15 year   | 3132D6NS5 | 3133G9EC9 |   5639632 | 2021-06-01 | 3133G9EC9 | QN2831 | CI        | 2020-07-01 | 2035-07-01   |      5639632 | 15 year
+ 3132D6NS5 |      2 |    1152690193.31 | 0.7775175 | 2.678 | 154 |   20 | 2022-02-04 | 15 year   | 3132D6NS5 | 3133G9F87 |   1991264 | 2021-06-01 | 3133G9F87 | QN2891 | CI        | 2020-07-01 | 2035-07-01   |      1991264 | 15 year
+ 3132D6NS5 |      2 |    1152690193.31 | 0.7775175 | 2.678 | 154 |   20 | 2022-02-04 | 15 year   | 3132D6NS5 | 3133L7PR2 |  37093484 | 2021-06-01 | 3133L7PR2 | RC1332 | CI        | 2020-05-01 | 2035-06-01   |     37093484 | 15 year
+ 3132D6NS5 |      2 |    1152690193.31 | 0.7775175 | 2.678 | 154 |   20 | 2022-02-04 | 15 year   | 3132D6NS5 | 3133L7R82 |  82942677 | 2021-06-01 | 3133L7R82 | RC1411 | CI        | 2020-05-01 | 2035-06-01   |     82942677 | 15 year
+ 3132D6NS5 |      2 |    1152690193.31 | 0.7775175 | 2.678 | 154 |   20 | 2022-02-04 | 15 year   | 3132D6NS5 | 3133L7TQ0 | 169529626 | 2021-06-01 | 3133L7TQ0 | RC1459 | CI        | 2020-06-01 | 2035-07-01   |    169529626 | 15 year
+ 3132D6NS5 |      2 |    1152690193.31 | 0.7775175 | 2.678 | 154 |   20 | 2022-02-04 | 15 year   | 3132D6NS5 | 3133L7TR8 | 387121365 | 2021-06-01 | 3133L7TR8 | RC1460 | CI        | 2020-06-01 | 2035-07-01   |    387121365 | 15 year
+ 3132D6NS5 |      2 |    1152690193.31 | 0.7775175 | 2.678 | 154 |   20 | 2022-02-04 | 15 year   | 3132D6NS5 | 3133L7U21 | 469205303 | 2021-06-01 | 3133L7U21 | RC1501 | CI        | 2020-07-01 | 2035-08-01   |    469205303 | 15 year
+ 3132D6NS5 |      2 |    1152690193.31 | 0.7775175 | 2.678 | 154 |   20 | 2022-02-04 | 15 year   | 3132D6NS5 | 3133L7UZ8 | 199130116 | 2021-06-01 | 3133L7UZ8 | RC1500 | CI        | 2020-07-01 | 2035-08-01   |    199130116 | 15 year
+
+-- seems to work... again the step before this might not be right but that is another matter 
