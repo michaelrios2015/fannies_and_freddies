@@ -268,6 +268,35 @@ ADD cfincmos DOUBLE PRECISION;
 ALTER TABLE fanniemirrorbodies
 ADD cfinplats DOUBLE PRECISION;
 
+CREATE TABLE IF NOT EXISTS fannieplatmirrors (
+    cusip VARCHAR,
+    name VARCHAR,
+    indicator VARCHAR,
+    issuedate DATE,
+    maturitydate DATE,
+    originalface DOUBLE PRECISION,
+    ecdate date,
+    PRIMARY KEY (cusip, ecdate) 
+);
+
+
+CREATE TABLE IF NOT EXISTS fannieplatmirrorbodies (
+    cusip VARCHAR,
+    coupon DOUBLE PRECISION,
+    remainingbalance DOUBLE PRECISION,
+    factor DOUBLE PRECISION,
+    gwac DOUBLE PRECISION,
+    wam INTEGER,
+    wala INTEGER,
+    date DATE,
+    ecdate date,
+    istbaelig istbaelig_type,
+    cfincmos DOUBLE PRECISION,
+    cfinplats DOUBLE PRECISION,
+    PRIMARY KEY (cusip, date, ecdate)
+);
+
+
 ------------------------------------------------------------------
 --- working on the freddies part
 

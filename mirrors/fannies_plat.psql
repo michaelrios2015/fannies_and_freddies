@@ -1,68 +1,66 @@
--- so one of the easiest things to do is just grab the the mirror (2nd freddie pool) 
--- from the ea file and say that is now a fannie with a date of the ea happened 
+-- stolem from the regular fannie one
 
--- yeah works fine almost not worth putting into a stored procedure except it makes life
--- slightly easier 
+    SELECT 
+        f.cusip,
+        f.name,
+        f.indicator,
+        f.issuedate,
+        f.maturitydate,
+        e.exchanged AS originalface,
+        e.date
+    FROM ecs e
+    INNER JOIN freddieplats f
+    ON e.fdtwocusip = f.cusip
+    -- so this would need to be updated each time 
+    WHERE e.date = '2022-02-03'
+    LIMIT 2;
 
-create or replace PROCEDURE fanniemirrors(ecsdate DATE)
+-- we don't have the tba eligible but that  is 
+create or replace PROCEDURE fannieplatmirrors(ecsdate DATE)
 language plpgsql
 as
 $$
 declare
 begin
 
-    INSERT INTO fanniemirrors
+    INSERT INTO fannieplatmirrors
     SELECT 
-        freddies.cusip,
-        freddies.name,
-        freddies.indicator,
-        freddies.issuedate,
-        freddies.maturitydate,
-        ecs.exchanged AS originalface,
-        freddies.istbaelig,
-        ecs.date
-    FROM ecs
-    INNER JOIN freddies
-    ON ecs.fdtwocusip = freddies.cusip
+        f.cusip,
+        f.name,
+        f.indicator,
+        f.issuedate,
+        f.maturitydate,
+        e.exchanged AS originalface,
+        e.date
+    FROM ecs e
+    INNER JOIN freddieplats f
+    ON e.fdtwocusip = f.cusip
     -- so this would need to be updated each time 
-    WHERE ecs.date = ecsdate;
+    WHERE e.date = ecsdate;
 
 end;
 
 $$;
 
-fanniemirrors(ecsdate DATE)
+fannieplatmirrors(ecsdate DATE)
 
-CALL fanniemirrors('2022-02-03');
+CALL fannieplatmirrors('2022-02-03');
 
 
 
 SELECT 
     COUNT(*)
-FROM eas
-INNER JOIN freddies
-ON eas.fdtwocusip = freddies.cusip
+FROM ecs
+INNER JOIN freddieplats
+ON ecs.fdtwocusip = freddieplats.cusip
 -- so this would need to be updated each time 
-WHERE eas.date = '2022-02-03';
+WHERE ecs.date = '2022-02-03';
 
--- so this seems to work would I just run it and put it in another table 
--- alsong with the regular fannies they would just have null for the date
---  and then when need to rerun on conflict just update or i could just truncate it 
--- and rebuild it or move the orginal face  to the changeable section??
-
--- probably just need to most current for the moment so I will just truncate and rerun.. but
--- might come up with somthing more sophistaced later
-
--- now we need to do something similar with the freddiesbodies 
-
--- this just gets what I need from some eas for a spefic date
--- I think this can just be cleaned up a little and then it should be good to go - 2/23/22
-
--- get my ecs for a certain date
+-- seems to work
 
 -- 
 
-create or replace PROCEDURE fanniebodymirrors(ecsdate DATE, freddiebodiesdate DATE)
+create or replace PROCEDURE fannieplatbodymirrors(ecsdate DATE, freddiebodiesdate DATE)
 language plpgsql
 as
 $$
@@ -84,19 +82,20 @@ begin
     -- gets us the freddiebodies for the month we need and also only picks the mirrors
     CREATE TEMP TABLE currentfreddies AS
     SELECT 
-        freddiebodies.cusip,
-        freddiebodies.coupon,
-        freddiebodies.remainingbalance,
-        freddiebodies.factor,
-        freddiebodies.gwac,
-        freddiebodies.wam,
-        freddiebodies.wala,
-        freddiebodies.date
-    FROM  freddiebodies
+        f.cusip,
+        f.coupon,
+        f.remainingbalance,
+        f.factor,
+        f.gwac,
+        f.wam,
+        f.wala,
+        f.date,
+        f.istbaelig
+    FROM  freddieplatbodies f
     -- this just limits it so it does not take forever in the next step
     INNER JOIN currentecs
-    ON currentecs.fdtwocusip = freddiebodies.cusip
-    WHERE freddiebodies.date = freddiebodiesdate;
+    ON currentecs.fdtwocusip = f.cusip
+    WHERE f.date = freddiebodiesdate;
 
 
     -- getting original face so we can compare it with exchanged
@@ -104,22 +103,22 @@ begin
     SELECT
         currentfreddies.cusip,
         currentfreddies.coupon,
-        freddies.originalface,
+        freddieplats.originalface,
         currentfreddies.remainingbalance,
         currentfreddies.factor,
         currentfreddies.gwac,
         currentfreddies.wam,
         currentfreddies.wala,
-        currentfreddies.date
+        currentfreddies.date,
+        currentfreddies.istbaelig
     FROM  currentfreddies
     -- this just limits it so it does not take forever in the next step
-    INNER JOIN freddies
-    ON freddies.cusip = currentfreddies.cusip;
-
+    INNER JOIN freddieplats
+    ON freddieplats.cusip = currentfreddies.cusip;
 
 
     -- putting it all toget 
-    INSERT INTO fanniemirrorbodies
+    INSERT INTO fannieplatmirrorbodies
     SELECT 
         currentfreddieswof.cusip,
         currentfreddieswof.coupon,
@@ -134,7 +133,8 @@ begin
         currentfreddieswof.wam,
         currentfreddieswof.wala,
         currentfreddieswof.date,
-        currentecs.date AS ecdate
+        currentecs.date AS ecdate,
+        currentfreddieswof.istbaelig
     FROM currentfreddieswof
     INNER JOIN currentecs
     ON currentfreddieswof.cusip = currentecs.fdtwocusip;
@@ -146,10 +146,12 @@ end;
 
 $$;
 
-fanniebodymirrors(ecsdate DATE, freddiebodiesdate DATE)
+fannieplatbodymirrors(ecsdate DATE, freddiebodiesdate DATE)
 
-CALL fanniebodymirrors('2022-02-03', '2022-02-04')
+CALL fannieplatbodymirrors('2022-02-03', '2022-02-04')
 
+
+-- Seems to work 
 
 SELECT *
 FROM currentfreddies
