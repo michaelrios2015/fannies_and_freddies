@@ -89,7 +89,9 @@ with open(data_path, newline='') as csvfile:
             wala = row[23]
 
 # we have two kinds of plats SCR or SCR - Mirrors so we are using starts with to find both of them
-            if row[34].startswith('SCR') or row[37].startswith('SCR') or row[34] == 'Multiple' or row[37] == 'Multiple':
+# the SCR - Mirror do not appear to be labeled correctly we will deal wih that later
+# there are also some called the Multiples we briefly had them here now we do not
+            if row[34].startswith('SCR') or row[37].startswith('SCR'):
 
                 headplats.append([cusip, name, indicator, start_date.date(),
                                   end_date.date(), originalface])
