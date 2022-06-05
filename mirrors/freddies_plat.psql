@@ -16,6 +16,8 @@ OR freddies.cusip = ecs.fdtwocusip;
 
 -- honestly a bit confused by the logic... oh this first one just gets us the ones that are not involved with
 -- mirrors 
+
+
 create or replace PROCEDURE freddiesplatswithoutmirrors(ecsdate DATE)
 language plpgsql
 as
@@ -30,7 +32,7 @@ begin
     FROM ecs
     WHERE date = ecsdate;
 
-
+-- my table that looks for freddies untouched by the ec (mirror table) from the first columns
     CREATE TEMP TABLE fdminusmirrorone AS
     SELECT 
         f.cusip,
@@ -39,12 +41,13 @@ begin
         f.issuedate,
         f.maturitydate,
         f.originalface
-    FROM freddiesplats f
+    FROM freddieplats f
     LEFT JOIN currentecs
     ON f.cusip = currentecs.fdonecusip
     -- why null
     WHERE currentecs.fdonecusip IS NULL;
  
+--  this looks for freddies untouched by mirrors in 
     INSERT INTO freddiesplatswithoutmirrors
     SELECT 
         fdminusmirrorone.cusip,
@@ -55,6 +58,7 @@ begin
         fdminusmirrorone.originalface,
         ecsdate AS ecdate
     FROM fdminusmirrorone
+    -- why I am joining 
     LEFT JOIN currentecs
     ON fdminusmirrorone.cusip = currentecs.fdtwocusip
     WHERE currentecs.fdtwocusip IS NULL;
@@ -71,57 +75,12 @@ freddiesplatswithoutmirrors(ecsdate DATE)
 
 CALL freddiesplatswithoutmirrors('2022-02-03');
 
--- need to make a permanent table in which to store them cusip 
+--------------------------------------------------------------
 
-
---  so seems to work the count is right and when i try to join it on ecs i get nothing so that is all good 
-SELECT COUNT(*)
-FROM fdminusmirrortwo
-INNER JOIN currentecs
--- ON fdminusmirrortwo.cusip = ecs.fdonecusip
-ON fdminusmirrortwo.cusip = currentecs.fdtwocusip;
-
-
-SELECT COUNT(*)
-FROM freddieswithoutmirrors
-INNER JOIN ecs
-ON freddieswithoutmirrors.cusip = ecs.fdonecusip;
--- ON freddieswithoutmirrors.cusip = ecs.fdtwocusip;
-
-
-
--- those two seem to work just fine togther and should get just the freddies that have nothing
--- to do with the mirrors 
-
--- freddies that have lost some of their original face to mirrors might be easier.. 
--- yeah looks pretty straight forward combine it with freddies subtract what has been 
--- exchanged adjust orginla face
-
---  of just need to make sure these work then turn into stored procedurs but they seem fine
-
-
-
-
-SELECT COUNT(*)
-FROM freddies
-INNER JOIN ecs
-ON freddies.cusip = ecs.fdtwocusip;
-
-
--- ok so we can get just the freddies that have nothing to do with mirrors it's in a store procedure and it
--- includes the date of the ec file so we know which date it's from 
-
--- so know i need to be able to adjust teh orginal face for the freddies that have lost some to the mirrors
-
--- going to inner
-
--- so this is basically it we just get the freddies that have been mirrored and we subtract any of that was exchanged
--- pretty easy.. I was thinking of making a newtable for it juts because it might make it easier to double check things later
--- but it's really the exact same info as before so going to put them in the freddies without mirrors even those these are 
--- freddies with adjusted OF... can always change in the furture 
-
-
-create or replace PROCEDURE freddieswithadjusted(ecsdate DATE)
+-- so this just subtracts the original face from the freddies that lost part of it 
+-- seems to work should trnucate the table run it seperately and double check 
+  
+create or replace PROCEDURE freddiesplatswithadjusted(ecsdate DATE)
 language plpgsql
 as
 $$
@@ -135,19 +94,18 @@ begin
     FROM ecs
     WHERE date = ecsdate;
 
-    INSERT INTO freddieswithoutmirrors
+    INSERT INTO freddiesplatswithoutmirrors
     SELECT 
-        freddies.cusip,
-        freddies.name,
-        freddies.indicator,
-        freddies.issuedate,
-        freddies.maturitydate,
-        freddies.originalface - currentecs.exchanged AS originalface,
-        freddies.istbaelig,
+        f.cusip,
+        f.name,
+        f.indicator,
+        f.issuedate,
+        f.maturitydate,
+        f.originalface - currentecs.exchanged AS originalface,
         currentecs.date AS ecdate
-    FROM freddies
+    FROM freddieplats f
     INNER JOIN currentecs
-    ON freddies.cusip = currentecs.fdonecusip;
+    ON f.cusip = currentecs.fdonecusip;
 
     DROP TABLE IF EXISTS currentecs; 
  
@@ -157,9 +115,9 @@ end;
 $$;
 
 --  seems to work fine :) 
-freddieswithadjusted(ecsdate DATE);
+freddiesplatswithadjusted(ecsdate DATE);
 
-CALL freddieswithadjusted('2022-02-03')
+CALL freddiesplatswithadjusted('2022-02-03')
     
 SELECT *
 INTO TEMP TABLE currentecs
@@ -350,3 +308,4 @@ $$;
 freddiesbodieswomirrorsadjustedcurrface(freddiesdate DATE, ecsdate DATE)
 
 CALL freddiesbodieswomirrorsadjustedcurrface('2022-02-04', '2022-02-03');
+

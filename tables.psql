@@ -335,6 +335,40 @@ ADD cfincmos DOUBLE PRECISION;
 ALTER TABLE freddiebodieswomirrors
 ADD cfinplats DOUBLE PRECISION;
 
+CREATE TABLE IF NOT EXISTS freddiesplatswithoutmirrors (
+    cusip VARCHAR,
+    name VARCHAR,
+    indicator VARCHAR,
+    issuedate DATE,
+    maturitydate DATE,
+    originalface DOUBLE PRECISION,
+    ecdate date,
+    PRIMARY KEY (cusip, ecdate) 
+);
+
+CREATE TABLE IF NOT EXISTS freddiebodiesplatswomirrors (
+    cusip VARCHAR,
+    coupon DOUBLE PRECISION,
+    remainingbalance DOUBLE PRECISION,
+    Factor DOUBLE PRECISION,
+    gwac DOUBLE PRECISION,
+    wam INTEGER,
+    wala INTEGER,
+    date DATE,
+    ecdate date, 
+    istbaelig istbaelig_type,
+    cfincmos DOUBLE PRECISION,
+    cfinplats DOUBLE PRECISION,
+    PRIMARY KEY (cusip, date, ecdate)
+);
+
+ALTER TABLE freddiebodieswomirrors
+ADD cfincmos DOUBLE PRECISION;
+
+ALTER TABLE freddiebodieswomirrors
+ADD cfinplats DOUBLE PRECISION;
+
+
 -----------------------------------------------------------------
 
 -- a temp table that I can put the super, giants, etc
