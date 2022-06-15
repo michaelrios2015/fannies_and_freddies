@@ -1,0 +1,15 @@
+CREATE TEMP TABLE  platinumsreader (
+    platcusip VARCHAR,
+    poolcusip VARCHAR,
+    ofinplat DOUBLE PRECISION 
+);
+
+
+\COPY platinumsreader FROM 'C:/Users/micha/fannieandfreddie/cvs_readers/data/input/MegaOutputJun11.txt' DELIMITER ','; 
+
+
+INSERT INTO platinums (platcusip, poolcusip, ofinplat, date)
+SELECT  platcusip, poolcusip, ofinplat, '2022-06-11'
+FROM platinumsreader
+ON CONFLICT
+DO NOTHING;
