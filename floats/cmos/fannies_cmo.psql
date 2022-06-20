@@ -85,16 +85,19 @@ $$
 declare
 begin
 
-    DROP TABLE IF EXISTS poolofincmos, currfanniebodies, cfincmos;
+    DROP TABLE IF EXISTS poolofincmos, currfanniebodies, cfincmos,
+            currfannieplatbodies, cfincmosplat;
 
+-- we sume the original face in cmos and group it by cusip
     CREATE TEMP TABLE poolofincmos AS
     SELECT 
         cusip,
         SUM(faceincmo) AS faceincmo
     FROM ofincmos
+    WHERE date <= fanniebodiesdate
     GROUP BY cusip;
 
-
+-- here we are doing it for our fannie pools
     CREATE TEMP TABLE currfanniebodies AS
     SELECT 
         fanniebodies.cusip,
@@ -124,7 +127,38 @@ begin
     AND fanniebodies.date = cfincmos.date;
 
 
-    DROP TABLE IF EXISTS poolofincmos, currfanniebodies, cfincmos;
+-- here we are doing it for the fannie megas and supers
+    CREATE TEMP TABLE currfannieplatbodies AS
+    SELECT 
+        b.cusip,
+        b.remainingbalance,
+        f.originalface,
+        b.remainingbalance / f.originalface AS factor,
+        b.date
+    FROM fannieplatbodies b
+    INNER JOIN fannieplats f
+    ON b.cusip = f.cusip
+    WHERE date = fanniebodiesdate;
+
+
+    CREATE TEMP TABLE cfincmosplat AS
+    SELECT 
+        f.cusip,
+        poolofincmos.faceincmo * f.factor AS currfaceincmos,
+        f.date
+    FROM currfannieplatbodies f
+    LEFT JOIN poolofincmos
+    ON f.cusip = poolofincmos.cusip;
+
+    UPDATE fannieplatbodies
+    SET cfincmos = cfincmosplat.currfaceincmos
+    FROM cfincmosplat
+    WHERE fannieplatbodies.cusip = cfincmosplat.cusip
+    AND fannieplatbodies.date = cfincmosplat.date;
+
+
+    DROP TABLE IF EXISTS poolofincmos, currfanniebodies, cfincmos,
+            currfannieplatbodies, cfincmosplat;
 
     end;
 
@@ -133,7 +167,7 @@ $$;
 
 fanniescmocurrentface( fanniebodiesdate DATE )
 
-CALL fanniescmocurrentface('2022-02-01');
+CALL fanniescmocurrentface('2022-04-01');
 
 
 

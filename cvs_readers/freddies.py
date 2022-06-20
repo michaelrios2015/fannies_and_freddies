@@ -92,6 +92,8 @@ with open(data_path, newline='') as csvfile:
 # the SCR - Mirror do not appear to be labeled correctly we will deal wih that later
 # there are also some called the Multiples we briefly had them here now we do not
             if row[34].startswith('SCR') or row[37].startswith('SCR'):
+                # I was looking for missing suips in our platinums table
+                # if row[34] == 'SCR - Mirror' or row[37] == 'SCR - Mirror':
 
                 headplats.append([cusip, name, indicator, start_date.date(),
                                   end_date.date(), originalface])
