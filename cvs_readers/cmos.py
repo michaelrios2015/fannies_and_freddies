@@ -1,3 +1,6 @@
+# so this only works for the two big files fannie_cmos.csv and freddie_cmos.csv that david gave me
+# it will not be hard to copy and modifit it for the monthly ones... but it does need to be done
+
 import csv
 from datetime import datetime
 import psycopg2
@@ -8,9 +11,10 @@ conn = psycopg2.connect(
     password='JerryPine', host='localhost', port='5432'
 )
 
-# change this monthly
+# we will only use this code once
 data_path = 'cvs_readers/data/input/fannie_cmos.csv'
 
+date = '2022-03-01'
 
 with open(data_path, newline='') as csvfile:
     data = csv.reader(csvfile, delimiter=',')
@@ -29,7 +33,7 @@ with open(data_path, newline='') as csvfile:
             # print(cusip)
             # print(ofincmo)
 
-            head.append([cmo, cusip, ofincmo])
+            head.append([cmo, cusip, ofincmo, date])
 
         except Exception as e:
             # we seem to get a couple of very new supers (like platinums) each month
@@ -72,14 +76,14 @@ with open(data_path, newline='') as csvfile:
             # print(ofincmo)
 
         # break
-            head.append([cmo, cusip, ofincmo])
+            head.append([cmo, cusip, ofincmo, date])
 
         except Exception as e:
             # we seem to get a couple of very new supers (like platinums) each month
             print(row)
             print(e)
 
-headfields = ['cmo', 'cusip', 'ofincmo']
+headfields = ['cmo', 'cusip', 'ofincmo', 'date']
 
 with open('cvs_readers/data/output/cmos.cvs', 'w', newline='') as csvfile:
     # creating a csv writer object
@@ -101,7 +105,8 @@ sql = '''
 CREATE TEMP TABLE cmosreader (
     cmo VARCHAR,
     cusip VARCHAR,
-    faceincmo DOUBLE PRECISION
+    faceincmo DOUBLE PRECISION,
+    date Date
 );
 '''
 

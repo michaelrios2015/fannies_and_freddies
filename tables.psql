@@ -598,51 +598,15 @@ CREATE TABLE freddiesofinplat (
 );
 
 
---------------------------------------
-
---  we need to the unique original face in cmo table 
--- well I see no freedies or fannies in the cmos I imported from  
--- OK so they get there own cmos.. which I might deal with tomorrow 
-
-CREATE TABLE uniqueofincmos (
-    cmo VARCHAR,
-    cusip VARCHAR,
-    faceincmo DOUBLE PRECISION,
-    date DATE,
-    collapsed DATE,
-    PRIMARY KEY (cmo, cusip, date)
-);
-
-SELECT * 
-FROM uniqueofincmos
-INNER JOIN fannies
-ON uniqueofincmos.cusip = fannies.cusip
-LIMIT 5;
-
-SELECT * 
-FROM uniqueofincmos
-INNER JOIN freddies
-ON uniqueofincmos.cusip = freddies.cusip
-LIMIT 5;
-
--- so my hope that I can just bring in the unique of in cmos from ginnies has been dashed
--- so in the ginnies when I first bring in the cmos there is no primary key except a number
---  I do not know if this is the case also don't know if date applies presummably it does.. is it imporant 
--- IDK 
-
-
-cmos_builder=# SELECT  * FROM ofincmos LIMIT 2;
- id |    cmo     |   cusip   | faceincmo |    date
-----+------------+-----------+-----------+------------
-  1 | 1999-004-1 | 36202C6Y4 |  14234984 | 2021-06-01
-  2 | 1999-004-1 | 36202C7L1 |   2772583 | 2021-06-01
-
+-------------------------------------------------------
+-- CMOS
 
 --  going to be optimistic
 CREATE TABLE ofincmos (
     cmo VARCHAR,
     cusip VARCHAR,
     faceincmo DOUBLE PRECISION,
+    date DATE,
     PRIMARY KEY (cmo, cusip)
 );
 

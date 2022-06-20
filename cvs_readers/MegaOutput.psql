@@ -5,11 +5,36 @@ CREATE TEMP TABLE  platinumsreader (
 );
 
 
+
 \COPY platinumsreader FROM 'C:/Users/micha/fannieandfreddie/cvs_readers/data/input/MegaOutputJun11.txt' DELIMITER ','; 
 
 
+SELECT COUNT(DISTINCT p.platcusip)
+FROM platinumsreader p
+INNER JOIN fannieplats f
+ON p.platcusip = f.name;
+
+-- so it is only 178 but they are all plats which is great 
+
+SELECT *
+FROM platinumsreader p
+INNER JOIN fannieplats f
+ON p.platcusip = f.name
+LIMIT 2;
+
+CREATE TEMP TABLE anotherplatreader AS
+SELECT 
+    f.cusip,
+    p.poolcusip,
+    p.ofinplat
+FROM platinumsreader p
+INNER JOIN fannieplats f
+ON p.platcusip = f.name;
+
+
+
 INSERT INTO platinums (platcusip, poolcusip, ofinplat, date)
-SELECT  platcusip, poolcusip, ofinplat, '2022-06-11'
-FROM platinumsreader
+SELECT  cusip, poolcusip, ofinplat, '2022-06-19'
+FROM anotherplatreader
 ON CONFLICT
 DO NOTHING;
