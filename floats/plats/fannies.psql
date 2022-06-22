@@ -48,6 +48,7 @@ begin
 
     DROP TABLE IF EXISTS poolofinplats, currfanniebodies, currfaceinplat;
 
+    -- sum by cusip
     CREATE TEMP TABLE poolofinplats AS
     SELECT 
         poolcusip,
@@ -55,7 +56,7 @@ begin
     FROM platinums
     GROUP BY poolcusip;
 
-
+-- for the fannies
     CREATE TEMP TABLE currfanniebodies AS
     SELECT 
         fanniebodies.cusip,
@@ -82,7 +83,36 @@ begin
     WHERE fanniebodies.cusip = currfaceinplat.cusip
     AND fanniebodies.date = currfaceinplat.date;
 
-    DROP TABLE IF EXISTS poolofinplats, currfanniebodies, currfaceinplat;
+-- fannie plats
+   CREATE TEMP TABLE currfannieplatbodies AS
+    SELECT 
+        b.cusip,
+        b.remainingbalance / f.originalface AS factor,
+        b.date 
+    FROM fannieplatbodies b
+    INNER JOIN fannieplats f
+    ON b.cusip = f.cusip
+    WHERE date = fanniebodiesdate;
+
+    CREATE TEMP TABLE currfaceinplattwo AS
+    SELECT 
+        f.cusip,
+        poolofinplats.ofinplat,
+        poolofinplats.ofinplat * f.factor AS currfaceinplat,
+        f.date
+    FROM currfannieplatbodies f
+    INNER JOIN poolofinplats
+    ON f.cusip = poolofinplats.poolcusip;
+
+    UPDATE fannieplatbodies
+    SET cfinplats = currfaceinplattwo.currfaceinplat
+    FROM currfaceinplatwo
+    WHERE fannieplatbodies.cusip = currfaceinplattwo.cusip
+    AND fannieplatbodies.date = currfaceinplattwo.date;
+
+
+    DROP TABLE IF EXISTS poolofinplats, currfanniebodies, currfaceinplat,
+        currfaceinplattwo, currfannieplatbodies;
 
     end;
 
