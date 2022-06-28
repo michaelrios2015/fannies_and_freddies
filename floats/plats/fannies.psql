@@ -106,10 +106,9 @@ begin
 
     UPDATE fannieplatbodies
     SET cfinplats = currfaceinplattwo.currfaceinplat
-    FROM currfaceinplatwo
+    FROM currfaceinplattwo
     WHERE fannieplatbodies.cusip = currfaceinplattwo.cusip
     AND fannieplatbodies.date = currfaceinplattwo.date;
-
 
     DROP TABLE IF EXISTS poolofinplats, currfanniebodies, currfaceinplat,
         currfaceinplattwo, currfannieplatbodies;
@@ -121,7 +120,7 @@ $$;
 
 fanniesfloat( fanniebodiesdate DATE )
 
-CALL fanniesfloat('2022-02-01');
+CALL fanniesfloat('2022-04-01');
 
 
 
