@@ -107,8 +107,22 @@ $$
 declare
 begin
 
-    DROP TABLE IF EXISTS currfreddiebodiesstepone, 
-        currfreddiebodies, poolofincmos, cfincmos;
+    DROP TABLE IF EXISTS ratios, currfreddiebodiesstepone, 
+        currfreddiebodies, poolofincmos, cfincmos,
+        currfreddieplatbodiesstepone, currfreddieplatbodies, cfincmosforplats ;
+
+
+    -- our cmo sumed by pool cusip
+
+    CREATE TEMP TABLE poolofincmos AS
+    SELECT 
+        cusip,
+        SUM(faceincmo) AS faceincmo
+    FROM ofincmos
+    GROUP BY cusip;
+
+
+    -- for the pools
 
     CREATE TEMP TABLE currfreddiebodiesstepone AS
     SELECT * 
@@ -131,13 +145,7 @@ begin
     INNER JOIN freddieswithoutmirrors
     ON currfreddiebodiesstepone.cusip = freddieswithoutmirrors.cusip
     AND currfreddiebodiesstepone.ecdate = freddieswithoutmirrors.ecdate;
-  
-    CREATE TEMP TABLE poolofincmos AS
-    SELECT 
-        cusip,
-        SUM(faceincmo) AS faceincmo
-    FROM ofincmos
-    GROUP BY cusip;
+
 
     CREATE TEMP TABLE cfincmos AS
     SELECT
@@ -157,8 +165,51 @@ begin
     AND freddiebodieswomirrors.date = cfincmos.date
     AND freddiebodieswomirrors.ecdate = cfincmos.ecdate;
 
+    -- for the plats
+
+    CREATE TEMP TABLE currfreddieplatbodiesstepone AS
+    SELECT * 
+    FROM freddiebodiesplatswomirrors
+    WHERE date = freddiesdate
+    and ecdate = ecsdate;
+
+    CREATE TEMP TABLE currfreddieplatbodies AS
+    SELECT
+    b.cusip,
+    b.remainingbalance,
+    CASE  
+        WHEN f.originalface > 0 THEN b.remainingbalance / f.originalface 
+        ELSE 0
+    END
+    AS factor, 
+    b.date,
+    b.ecdate 
+    FROM currfreddieplatbodiesstepone b
+    INNER JOIN freddiesplatswithoutmirrors f
+    ON b.cusip = f.cusip
+    AND b.ecdate = f.ecdate;
+
+    CREATE TEMP TABLE cfincmosforplats AS
+    SELECT
+        b.cusip,
+        poolofincmos.faceincmo * b.factor AS currfaceincmo,
+        b.remainingbalance - (poolofincmos.faceincmo * b.factor) AS float,
+        b.date,
+        b.ecdate
+    FROM currfreddieplatbodies b
+    INNER JOIN poolofincmos
+    ON b.cusip = poolofincmos.cusip;
+
+    UPDATE freddiebodiesplatswomirrors
+    SET cfincmos = cfincmosforplats.currfaceincmo
+    FROM cfincmosforplats
+    WHERE freddiebodiesplatswomirrors.cusip = cfincmosforplats.cusip
+    AND freddiebodiesplatswomirrors.date = cfincmosforplats.date
+    AND freddiebodiesplatswomirrors.ecdate = cfincmosforplats.ecdate;
+
     DROP TABLE IF EXISTS ratios, currfreddiebodiesstepone, 
-        currfreddiebodies, currfreddiebodies, poolofincmos, cfincmos;
+        currfreddiebodies, poolofincmos, cfincmos,
+        currfreddieplatbodiesstepone, currfreddieplatbodies, cfincmosforplats ;
 
     end;
 

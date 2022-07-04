@@ -359,4 +359,299 @@ AND istbaelig = '30 year';
  1647604.8267090865 | 29318.766648044693 | 407872.30088864954 | 1210413.759172392
 
 
+-----------------------------------------------------------
+-- want to check for nagative floats 
 
+--  so we have fannie and fannie plats 
+
+SELECT COUNT()
+FROM fanniebodies
+WHERE COALESCE(remainingbalance, 0) - COALESCE(cfincmos, 0) - COALESCE(cfinplats, 0) < -10;
+ count
+-------
+ 19180
+(1 row)
+
+
+SELECT *
+FROM fanniebodies
+WHERE COALESCE(remainingbalance, 0) - COALESCE(cfincmos, 0) - COALESCE(cfinplats, 0) < -10
+ORDER BY COALESCE(remainingbalance, 0) - COALESCE(cfincmos, 0) - COALESCE(cfinplats, 0)
+LIMIT 5;
+
+   cusip   | coupon | remainingbalance |   factor   | gwac  | wam | wala |    date    |      cfincmos      |     cfinplats      -----------+--------+------------------+------------+-------+-----+------+------------+--------------------+-------------------- 31418CXN9 |      4 |      984820626.2 | 0.13061422 | 4.581 | 305 |   47 | 2022-04-01 |  43083058.70015097 | 2410807525.3612533
+ 31418DQA3 |      3 |    1728099290.09 | 0.41858243 |  3.85 | 330 |   23 | 2022-04-01 |  90394933.76946114 | 1996898472.9530187
+ 31418CYM0 |      4 |     845519460.82 | 0.13219738 | 4.637 | 306 |   46 | 2022-04-01 | 30568816.247655053 | 1152422697.2301738
+ 3140FXDY5 |    4.5 |     329984702.59 | 0.30934246 | 5.133 | 366 |  103 | 2022-04-01 |  147003686.8408754 |  330275484.5042748
+ 3140FXCQ3 |      4 |     188192319.77 | 0.37525261 |   4.5 | 369 |  101 | 2022-04-01 | 133593065.37963451 |       188192319.77
+
+--  so we got a bunch for fannies
+
+
+SELECT 
+    cusip,
+    remainingbalance/1000000 AS rb,
+    cfincmos/1000000 as cmo,
+    cfinplats/1000000 as plat
+FROM fanniebodies
+WHERE COALESCE(remainingbalance, 0) - COALESCE(cfincmos, 0) - COALESCE(cfinplats, 0) < -10
+ORDER BY COALESCE(remainingbalance, 0) - COALESCE(cfincmos, 0) - COALESCE(cfinplats, 0)
+LIMIT 5;
+
+
+   cusip   |         rb         |        cmo         |        plat
+-----------+--------------------+--------------------+--------------------
+ 31418CXN9 |        984.8206262 | 43.083058700150964 | 2410.8075253612533
+ 31418DQA3 | 1728.0992900899998 |  90.39493376946113 | 1996.8984729530187
+ 31418CYM0 |  845.5194608200001 | 30.568816247655054 | 1152.4226972301738
+ 3140FXDY5 |       329.98470259 |  147.0036868408754 |  330.2754845042748
+ 3140FXCQ3 |       188.19231977 |  133.5930653796345 |       188.19231977
+
+--  so of the plat data most be way off... 
+
+
+SELECT COUNT(*)
+FROM fannieplatbodies
+WHERE COALESCE(remainingbalance, 0) - COALESCE(cfincmos, 0) - COALESCE(cfinplats, 0) < -10;
+
+ count
+-------
+   311
+
+--    so much less but still there 
+
+SELECT 
+    cusip,
+    remainingbalance/1000000 AS rb,
+    cfincmos/1000000 as cmo,
+    cfinplats/1000000 as plat
+FROM fannieplatbodies
+WHERE COALESCE(remainingbalance, 0) - COALESCE(cfincmos, 0) - COALESCE(cfinplats, 0) < -10
+ORDER BY COALESCE(remainingbalance, 0) - COALESCE(cfincmos, 0) - COALESCE(cfinplats, 0)
+LIMIT 5;
+
+   cusip   |         rb         |        cmo         |        plat
+-----------+--------------------+--------------------+--------------------
+ 31402Q2R1 |  73.08274429000001 |  73.08274429000001 |  56.21749559082706
+ 31416CFE1 |        49.51659966 |  46.37668278992661 | 45.005255399831974
+ 31416CFD3 |        53.87542369 |  40.60994167036789 |  49.97037099849149
+ 3138EKAN5 | 22.897046149999998 | 22.897046149999998 | 14.151937371065515
+ 31418MK27 |        18.17190055 |        18.17190055 | 13.978385033692172
+
+--  will need to investigate those 
+
+SELECT COUNT(*)
+FROM fanniemirrorbodies
+WHERE COALESCE(remainingbalance, 0) - COALESCE(cfincmos, 0) - COALESCE(cfinplats, 0) < 0;
+
+-- these seem fine but tehre are only 211 so 
+
+
+SELECT COUNT(*)
+FROM fannieplatmirrorbodies
+WHERE COALESCE(remainingbalance, 0) - COALESCE(cfincmos, 0) - COALESCE(cfinplats, 0) < -10;
+ count
+-------
+   143
+
+--    some here too but fannies is stil the main problem 
+
+SELECT 
+    cusip,
+    remainingbalance/1000000 AS rb,
+    cfincmos/1000000 as cmo,
+    cfinplats/1000000 as plat
+FROM fannieplatmirrorbodies
+WHERE COALESCE(remainingbalance, 0) - COALESCE(cfincmos, 0) - COALESCE(cfinplats, 0) < -10
+ORDER BY COALESCE(remainingbalance, 0) - COALESCE(cfincmos, 0) - COALESCE(cfinplats, 0)
+LIMIT 5;
+
+   cusip   |         rb         |        cmo         |        plat
+-----------+--------------------+--------------------+--------------------
+ 3132AEJ31 |        89.76917833 |        89.76917833 |        89.76917833
+ 31329QC25 | 33.856246240000004 | 33.856246240000004 | 28.667932082119925
+ 3132A9QN0 | 1.0538345754264107 |                    | 11.605545919147495
+ 3132ACYP9 |   8.92025169207654 |                    | 17.485768270209693
+ 31329HWX5 |         7.86850044 |         7.86850044 |         7.86850044
+
+
+
+
+SELECT COUNT(*)
+FROM freddiebodieswomirrors
+WHERE COALESCE(remainingbalance, 0) - COALESCE(cfincmos, 0) - COALESCE(cfinplats, 0) < -10;
+
+ count
+-------
+ 23499
+(1 row)
+
+with cmos
+ count
+-------
+ 29031
+
+-- I haven't even done the cmos for tehse so that is not good
+
+
+SELECT 
+    cusip,
+    remainingbalance/1000000 AS rb,
+    cfincmos/1000000 as cmo,
+    cfinplats/1000000 as plat
+FROM freddiebodieswomirrors
+WHERE COALESCE(remainingbalance, 0) - COALESCE(cfincmos, 0) - COALESCE(cfinplats, 0) < -10
+ORDER BY COALESCE(remainingbalance, 0) - COALESCE(cfincmos, 0) - COALESCE(cfinplats, 0)
+LIMIT 5;
+
+   cusip   |         rb         | cmo |        plat
+-----------+--------------------+-----+--------------------
+ 31292SA67 | 1225.6731112728107 |     |  2390.808269126051
+ 31292SBC3 |  810.1108120243002 |     | 1682.0777574772658
+ 31292SAU4 |  839.5429395369703 |     | 1666.0990454310993
+ 31292SAX8 |  939.3001018157928 |     |  1698.955950854876
+ 3132WGTJ6 | 386.62448869481375 |     |  900.2224829327653
+
+    cusip   |         rb         |        cmo         |        plat
+-----------+--------------------+--------------------+--------------------
+ 31292SA67 | 1225.6731112728107 |  90.34884086091233 |  2390.808269126051
+ 31292SBC3 |  810.1108120243002 | 31.013980871423286 | 1682.0777574772658
+ 31292SAX8 |  939.3001018157928 | 128.68186586506022 |  1698.955950854876
+ 31292SAU4 |  839.5429395369703 | 1.0146462541202272 | 1666.0990454310993
+ 3132WGTJ6 | 386.62448869481375 |                    |  900.2224829327653
+
+SELECT COUNT(*)
+FROM freddiebodiesplatswomirrors
+WHERE COALESCE(remainingbalance, 0) - COALESCE(cfincmos, 0) - COALESCE(cfinplats, 0) < -10;
+ count
+-------
+  6053
+
+  with cmos
+   count
+-------
+  6294
+
+  SELECT 
+    cusip,
+    remainingbalance/1000000 AS rb,
+    cfincmos/1000000 as cmo,
+    cfinplats/1000000 as plat
+FROM freddiebodiesplatswomirrors
+WHERE COALESCE(remainingbalance, 0) - COALESCE(cfincmos, 0) - COALESCE(cfinplats, 0) < -10
+ORDER BY COALESCE(remainingbalance, 0) - COALESCE(cfincmos, 0) - COALESCE(cfinplats, 0)
+LIMIT 5;
+
+   cusip   |         rb         | cmo |       plat
+-----------+--------------------+-----+-------------------
+ 3128MJYT1 |  2166.137570905954 |     | 5440.039011302439
+ 3128MJYY0 | 1775.0280549158406 |     | 4975.523448189215
+ 3128MJZB9 |  3377.036945284661 |     | 6420.038070326097
+ 3128MJY61 |  3115.801209804025 |     | 6097.251814829498
+ 3128MJYM6 | 2455.6375635109234 |     | 5207.300330831273
+
+    cusip   |         rb         |        cmo         |       plat
+-----------+--------------------+--------------------+-------------------
+ 3128MJZB9 |  3377.036945284661 | 275.59111586854493 | 6420.038070326097
+ 3128MJYT1 |  2166.137570905954 |  32.29080447377629 | 5440.039011302439
+ 3128MJYY0 | 1775.0280549158406 |  84.63471701108188 | 4975.523448189215
+ 3128MJY61 |  3115.801209804025 | 26.329485416578002 | 6097.251814829498
+ 3128MJYM6 | 2455.6375635109234 |   72.6447803053332 | 5207.300330831273
+
+ fannies=# SELECT sum(ofinplat) from platinums where poolcusip = '3128MJZB9';
+     sum
+-------------
+ 22,576,690,455
+
+ fannies=# SELECT * from freddieplats where cusip = '3128MJZB9';
+   cusip   |  name  | indicator | issuedate  | maturitydate | originalface
+-----------+--------+-----------+------------+--------------+--------------
+ 3128MJZB9 | G08737 | G0        | 2016-11-01 | 2046-12-01   |  15,066,288,312
+
+ fannies=# SELECT * from freddiesplatswithoutmirrors where cusip = '3128MJZB9';
+   cusip   |  name  | indicator | issuedate  | maturitydate | originalface |   ecdate
+-----------+--------+-----------+------------+--------------+--------------+------------
+ 3128MJZB9 | G08737 | G0        | 2016-11-01 | 2046-12-01   |  11,875,680,009 | 2022-02-03
+
+  platcusip | poolcusip |  ofinplat   |    date
+-----------+-----------+-------------+------------
+ 31335AY77 | 3128MJZB9 |   147357607 | 2021-06-01
+ 3132A5GA7 | 3128MJZB9 | 15066288312 | 2021-06-01
+ 31335BRK4 | 3128MJZB9 |     3334000 | 2021-06-01
+ 31335BPY6 | 3128MJZB9 |       28000 | 2021-06-01
+ 31335B2M7 | 3128MJZB9 |    53047995 | 2021-06-01
+ 31335B6Z4 | 3128MJZB9 |     1046116 | 2021-06-01
+ 31335BN77 | 3128MJZB9 |      198154 | 2021-06-01
+ 31335BPS9 | 3128MJZB9 |  6836147667 | 2021-06-01
+ 31335CA38 | 3128MJZB9 |   357182651 | 2021-06-01
+ 31335BX92 | 3128MJZB9 |     3926000 | 2021-06-01
+ 31335BV45 | 3128MJZB9 |     2174321 | 2021-06-01
+ 31335CC69 | 3128MJZB9 |    88423000 | 2021-06-01
+ 31335CCA0 | 3128MJZB9 |    11092000 | 2021-06-01
+ 31335CG65 | 3128MJZB9 |     6444632 | 2021-06-01
+
+--  not sure if this is the best place for it but let me test some of teh freddie plats 
+
+SELECT *
+FROM ecs e
+INNER JOIN freddies f
+ON f.cusip = e.fdonecusip
+INNER JOIN freddieplats p
+ON p.cusip = e.fdtwocusip
+limit 2;
+
+ fdonename | fdonecusip | fdtwoname | fdtwocusip | exchangeable | exchanged |    date    |   cusip   |  name  | indicator | issuedate  | maturitydate | originalface | istbaelig |   cusip   |  name  | indicator | issuedate  | maturitydate | originalface
+-----------+------------+-----------+------------+--------------+-----------+------------+-----------+--------+-----------+------------+--------------+--------------+-----------+-----------+--------+-----------+------------+--------------+--------------
+ N30804    | 31281A3M2  | ZL0674    | 3131XFXB1  |    115688569 |         0 | 2022-02-03 | 31281A3M2 | N30804 | N3        | 2001-06-01 | 2031-06-01   |    115688569 | none      | 3131XFXB1 | ZL0674 | 3L        | 2018-09-01 | 2031-06-01   |    115688569
+ N30814    | 31281A3X8  | ZL0675    | 3131XFXC9  |     12870254 |         0 | 2022-02-03 | 31281A3X8 | N30814 | N3        | 2001-08-01 | 2031-08-01   |     12870254 | none      | 3131XFXC9 | ZL0675 | 3L        | 2018-09-01 | 2031-08-01   |     12870254
+
+SELECT COUNT(*)
+FROM ecs e
+INNER JOIN freddies f
+ON f.cusip = e.fdonecusip
+INNER JOIN freddieplats p
+ON p.cusip = e.fdtwocusip;
+ count
+-------
+ 56329
+(1 row)
+
+SELECT COUNT(*)
+FROM ecs e
+INNER JOIN freddieplats f
+ON f.cusip = e.fdonecusip
+INNER JOIN freddieplats p
+ON p.cusip = e.fdtwocusip;
+
+ count
+-------
+ 11085
+
+SELECT *
+FROM ecs e
+INNER JOIN freddieplats f
+ON f.cusip = e.fdonecusip
+INNER JOIN freddieplats p
+ON p.cusip = e.fdtwocusip
+LIMIT 2;
+
+ fdonename | fdonecusip | fdtwoname | fdtwocusip | exchangeable | exchanged |    date    |   cusip   |  name  | indicator | issuedate  | maturitydate | originalface |   cusip   |  name  | indicator | issuedate  | maturitydate | originalface
+-----------+------------+-----------+------------+--------------+-----------+------------+-----------+--------+-----------+------------+--------------+--------------+-----------+--------+-----------+------------+--------------+--------------
+ N30122    | 31281AD33  | ZT0685    | 3132ACXN5  |     37352120 |         0 | 2022-02-03 | 31281AD33 | N30122 | N3        | 1994-07-01 | 2024-04-01   |     37352120 | 3132ACXN5 | ZT0685 | 3L        | 2018-09-01 | 2024-04-01   |     37352120
+ N30123    | 31281AD41  | ZT0686    | 3132ACXP0  |     47569930 |         0 | 2022-02-03 | 31281AD41 | N30123 | N3        | 1996-08-01 | 2026-08-01   |     47569930 | 3132ACXP0 | ZT0686 | 3L        | 2018-09-01 | 2026-08-01   |     47569930
+(2 rows)
+
+
+CREATE TEMP TABLE aretheseplats AS
+SELECT p.cusip
+FROM ecs e
+INNER JOIN freddies f
+ON f.cusip = e.fdonecusip
+INNER JOIN freddieplats p
+ON p.cusip = e.fdtwocusip;
+
+COPY 56329
+
+\copy aretheseplats to 'C:/Users/Public/aretheseplats' csv header;
+
+-- so we have a lot of those 

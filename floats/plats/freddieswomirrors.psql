@@ -87,8 +87,19 @@ $$
 declare
 begin
 
-    DROP TABLE IF EXISTS currfreddiebodiesstepone, currfreddiebodies, poolofinplats, cfinplats;
+    DROP TABLE IF EXISTS currfreddiebodiesstepone, currfreddiebodies, poolofinplats, cfinplats,
+                            currfreddieplatbodiesstepone, currfreddieplatbodies, cfinplatsforplats;
 
+
+-- so just gatherig up the of in plats by their pool cusip 
+    CREATE TEMP TABLE poolofinplats AS
+    SELECT 
+        poolcusip,
+        SUM(ofinplat) AS ofinplat
+    FROM platinums
+    GROUP BY poolcusip;
+
+-- this does it for the freedie pools
     CREATE TEMP TABLE currfreddiebodiesstepone AS
     SELECT * 
     FROM freddiebodieswomirrors
@@ -111,14 +122,6 @@ begin
     ON currfreddiebodiesstepone.cusip = freddieswithoutmirrors.cusip
     AND currfreddiebodiesstepone.ecdate = freddieswithoutmirrors.ecdate;
 
-
-    CREATE TEMP TABLE poolofinplats AS
-    SELECT 
-        poolcusip,
-        SUM(ofinplat) AS ofinplat
-    FROM platinums
-    GROUP BY poolcusip;
-
     CREATE TEMP TABLE cfinplats AS
     SELECT
         currfreddiebodies.cusip,
@@ -137,7 +140,54 @@ begin
     AND freddiebodieswomirrors.date = cfinplats.date
     AND freddiebodieswomirrors.ecdate = cfinplats.ecdate;
 
-    DROP TABLE IF EXISTS currfreddiebodiesstepone, currfreddiebodies, poolofinplats, cfinplats;
+-- this does it for the freedie plats
+-- just getting my current plat bodies
+    CREATE TEMP TABLE currfreddieplatbodiesstepone AS
+    SELECT * 
+    FROM freddiebodiesplatswomirrors
+    WHERE date = freddiesdate
+    and ecdate = ecsdate;
+
+-- making our own factor 
+   CREATE TEMP TABLE currfreddieplatbodies AS
+    SELECT
+        b.cusip,
+        b.remainingbalance,
+        CASE  
+            WHEN f.originalface > 0 THEN b.remainingbalance / f.originalface 
+            ELSE 0
+        END
+        AS factor, 
+        b.date,
+        b.ecdate 
+    FROM currfreddieplatbodiesstepone b
+    INNER JOIN freddiesplatswithoutmirrors f
+    ON b.cusip = f.cusip
+    AND b.ecdate = f.ecdate;
+
+
+    CREATE TEMP TABLE cfinplatsforplats AS
+    SELECT
+        f.cusip,
+        poolofinplats.ofinplat * f.factor AS currfaceinplat,
+        f.remainingbalance - ( poolofinplats.ofinplat * f.factor) AS float,
+        f.date,
+        f.ecdate
+    FROM currfreddieplatbodies f
+    INNER JOIN poolofinplats
+    ON f.cusip = poolofinplats.poolcusip;
+
+    UPDATE freddiebodiesplatswomirrors
+    SET cfinplats = cfinplatsforplats.currfaceinplat
+    FROM cfinplatsforplats
+    WHERE freddiebodiesplatswomirrors.cusip = cfinplatsforplats.cusip
+    AND freddiebodiesplatswomirrors.date = cfinplatsforplats.date
+    AND freddiebodiesplatswomirrors.ecdate = cfinplatsforplats.ecdate;
+
+
+
+    DROP TABLE IF EXISTS currfreddiebodiesstepone, currfreddiebodies, poolofinplats, cfinplats,
+                            currfreddieplatbodiesstepone, currfreddieplatbodies, cfinplatsforplats;
 
     end;
 
@@ -146,6 +196,32 @@ $$;
 freddiesfloat( freddiesdate DATE, ecsdate DATE )
 
 CALL freddiesfloat( '2022-02-04', '2022-02-03' );
+
+-- so the stored procudure seems to work fine 
+
+fannies=# SELECT * from freddiebodiesplatswomirrors where remainingbalance - cfinplats < -10 order by remainingbalance - cfinplats limit 5;
+   cusip   | coupon |  remainingbalance  |       factor        | gwac  | wam | wala |    date    |   ecdate   | istbaelig | cfincmos |     cfinplats
+-----------+--------+--------------------+---------------------+-------+-----+------+------------+------------+-----------+----------+--------------------
+ 3128MJYT1 |      3 |  2166137570.905954 |  0.2547006357211786 | 3.752 | 284 |   66 | 2022-02-04 | 2022-02-03 |           |          |  5440039011.302439
+ 3128MJYY0 |      3 | 1775028054.9158406 |  0.2558194208968942 | 3.693 | 286 |   65 | 2022-02-04 | 2022-02-03 |           |          |  4975523448.189215
+ 3128MJZB9 |      3 | 3377036945.2846613 | 0.28436577465251417 | 3.639 | 288 |   63 | 2022-02-04 | 2022-02-03 |           |          | 6420038070.3260975
+ 3128MJY61 |      3 | 3115801209.8040247 | 0.26673293230265904 | 3.671 | 287 |   64 | 2022-02-04 | 2022-02-03 |           |          |  6097251814.829497
+ 3128MJYM6 |      3 | 2455637563.5109234 | 0.25251479725834525 | 3.763 | 283 |   67 | 2022-02-04 | 2022-02-03 |           |          |  5207300330.831273
+
+-- but I am getting a bunchg with negative float 
+
+-- and I even checked 3128MJYT1.. maybe it's teh date
+
+fannies=# SELECT sum(ofinplat) from platinums where poolcusip = '3128MJYT1';
+     sum
+-------------
+ 21358560790
+
+    cusip   |  name  | indicator | issuedate  | maturitydate | originalface
+-----------+--------+-----------+------------+--------------+--------------
+ 3128MJYT1 | G08721 | G0        | 2016-08-01 | 2046-09-01   |  16879075703
+
+--  it has more original face in other stuff then ever existed 
 
 
 fannies=# SELECT * FROM freddiebodieswomirrors where cfinplats is not null limit 5;
