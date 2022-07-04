@@ -138,8 +138,19 @@ $$
 declare
 begin
 
+
     DROP TABLE IF EXISTS currfanniebodies, currfanniebodiesstepone, 
-        poolofinplats, currfaceinplat;
+        poolofinplats, currfaceinplat, currfannieplatbodiesstepone, 
+        currfannieplatbodies, currfaceinplatforplats;
+
+    CREATE TEMP TABLE poolofinplats AS
+    SELECT 
+        poolcusip,
+        SUM(ofinplat) AS ofinplat
+    FROM platinums
+    GROUP BY poolcusip;
+
+-- for the fannie mirrors... 
 
     CREATE TEMP TABLE currfanniebodiesstepone  AS
     SELECT * 
@@ -163,12 +174,7 @@ begin
     ON currfanniebodiesstepone.cusip = fanniemirrors.cusip
     AND currfanniebodiesstepone.ecdate = fanniemirrors.ecdate;
 
-    CREATE TEMP TABLE poolofinplats AS
-    SELECT 
-        poolcusip,
-        SUM(ofinplat) AS ofinplat
-    FROM platinums
-    GROUP BY poolcusip;
+
 
     CREATE TEMP TABLE currfaceinplat AS
     SELECT 
@@ -190,8 +196,56 @@ begin
     AND fanniemirrorbodies.ecdate = currfaceinplat.ecdate;
 
 
+-- for the fannie plat mirrors... 
+
+-- so just getting the cuurent fannieplatmirrorbodies
+    CREATE TEMP TABLE currfannieplatbodiesstepone  AS
+    SELECT * 
+    FROM fannieplatmirrorbodies
+    WHERE date = fanniesdate
+    and ecdate = ecsdate;
+
+-- doing some more stuff with them 
+    CREATE TEMP TABLE currfannieplatbodies AS
+    SELECT
+        f.cusip,
+        f.remainingbalance,
+        CASE  
+            WHEN p.originalface > 0 THEN f.remainingbalance / p.originalface 
+            ELSE 0
+        END
+        AS factor, 
+        f.date,
+        f.ecdate 
+    FROM currfannieplatbodiesstepone f
+    INNER JOIN fannieplatmirrors p
+    ON f.cusip = p.cusip
+    AND f.ecdate = p.ecdate;
+
+
+    CREATE TEMP TABLE currfaceinplatforplats AS
+    SELECT 
+        f.cusip,
+        poolofinplats.ofinplat,
+        poolofinplats.ofinplat * f.factor AS currfaceinplat,
+        f.remainingbalance - ( poolofinplats.ofinplat  * f.factor) AS float,
+        f.date,
+        f.ecdate
+    FROM currfannieplatbodies f
+    INNER JOIN poolofinplats
+    ON f.cusip = poolofinplats.poolcusip;
+
+    UPDATE fannieplatmirrorbodies
+    SET cfinplats = currfaceinplatforplats.currfaceinplat
+    FROM currfaceinplatforplats
+    WHERE fannieplatmirrorbodies.cusip = currfaceinplatforplats.cusip
+    AND fannieplatmirrorbodies.date = currfaceinplatforplats.date
+    AND fannieplatmirrorbodies.ecdate = currfaceinplatforplats.ecdate;
+
+
     DROP TABLE IF EXISTS currfanniebodies, currfanniebodiesstepone, 
-        poolofinplats, currfaceinplat;
+        poolofinplats, currfaceinplat, currfannieplatbodiesstepone, 
+        currfannieplatbodies, currfaceinplatforplats;
 
     end;
 

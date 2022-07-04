@@ -104,7 +104,18 @@ declare
 begin
 
     DROP TABLE IF EXISTS currfanniebodiesstepone, 
-        currfanniebodies, poolofincmos, cfincmos;
+        currfanniebodies, poolofincmos, cfincmos,
+        currfannieplatbodiesstepone, currfannieplatbodies, cfincmosforplats;
+
+    -- original face in summed by pool cusip 
+    CREATE TEMP TABLE poolofincmos AS
+    SELECT 
+        cusip,
+        SUM(faceincmo) AS faceincmo
+    FROM ofincmos
+    GROUP BY cusip;
+
+-- for the fannie mirrors
 
     -- the fannie mirror bodies we want 
     CREATE TEMP TABLE currfanniebodiesstepone AS
@@ -130,13 +141,7 @@ begin
     ON currfanniebodiesstepone.cusip = fanniemirrors.cusip
     AND currfanniebodiesstepone.ecdate = fanniemirrors.ecdate;
 
-    -- original face in summed by pool cusip 
-    CREATE TEMP TABLE poolofincmos AS
-    SELECT 
-        cusip,
-        SUM(faceincmo) AS faceincmo
-    FROM ofincmos
-    GROUP BY cusip;
+
 
     -- calculate the current face in cmos 
     CREATE TEMP TABLE cfincmos AS
@@ -159,8 +164,59 @@ begin
     AND fanniemirrorbodies.date = cfincmos.date
     AND fanniemirrorbodies.ecdate = cfincmos.ecdate;
 
+-- to redo so for fannie mplat mirrors 
+
+
+    -- the fannie mirror bodies we want 
+    CREATE TEMP TABLE currfannieplatbodiesstepone  AS
+    SELECT * 
+    FROM fannieplatmirrorbodies
+    WHERE date = fanniesdate
+    and ecdate = ecsdate;
+
+    -- calcute factor on our own
+    CREATE TEMP TABLE currfannieplatbodies AS
+    SELECT
+        f.cusip,
+        f.remainingbalance,
+        CASE  
+            WHEN p.originalface > 0 THEN f.remainingbalance / p.originalface 
+            ELSE 0
+        END
+        AS factor, 
+        f.date,
+        f.ecdate 
+    FROM currfannieplatbodiesstepone f
+    INNER JOIN fannieplatmirrors p
+    ON f.cusip = p.cusip
+    AND f.ecdate = p.ecdate;
+
+
+    -- calculate the current face in cmos 
+    CREATE TEMP TABLE cfincmosforplats AS
+    SELECT
+        f.cusip,
+        poolofincmos.faceincmo,
+        poolofincmos.faceincmo * f.factor AS currfaceincmo,
+        f.remainingbalance - ( poolofincmos.faceincmo * f.factor) AS float,
+        f.date,
+        f.ecdate
+    FROM currfannieplatbodies f
+    LEFT JOIN poolofincmos
+    ON f.cusip = poolofincmos.cusip;
+
+    -- put it in mirrors
+    UPDATE fannieplatmirrorbodies
+    SET cfincmos = p.currfaceincmo
+    FROM cfincmosforplats p
+    WHERE fannieplatmirrorbodies.cusip = p.cusip
+    AND fannieplatmirrorbodies.date = p.date
+    AND fannieplatmirrorbodies.ecdate = p.ecdate;
+
+
     DROP TABLE IF EXISTS currfanniebodiesstepone, 
-        currfanniebodies, poolofincmos, cfincmos;
+        currfanniebodies, poolofincmos, cfincmos,
+        currfannieplatbodiesstepone, currfannieplatbodies, cfincmosforplats;
 
     end;
 
