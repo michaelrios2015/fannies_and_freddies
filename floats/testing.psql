@@ -364,7 +364,7 @@ AND istbaelig = '30 year';
 
 --  so we have fannie and fannie plats 
 
-SELECT COUNT()
+SELECT COUNT(*)
 FROM fanniebodies
 WHERE COALESCE(remainingbalance, 0) - COALESCE(cfincmos, 0) - COALESCE(cfinplats, 0) < -10;
  count
@@ -386,6 +386,11 @@ LIMIT 5;
  3140FXCQ3 |      4 |     188192319.77 | 0.37525261 |   4.5 | 369 |  101 | 2022-04-01 | 133593065.37963451 |       188192319.77
 
 --  so we got a bunch for fannies
+
+SELECT *
+FROM fanniebodies
+WHERE COALESCE(remainingbalance, 0) - COALESCE(cfincmos, 0) - COALESCE(cfinplats, 0) < -10
+AND cusip = '31418DQA3';
 
 
 SELECT 

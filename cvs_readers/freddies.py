@@ -8,6 +8,26 @@ conn = psycopg2.connect(
     password='JerryPine', host='localhost', port='5432'
 )
 
+# so I am not sure if this is the best place to put it our do this but here I am going read in all the cusips that have SRC - Mirrors but are not actually plats.. I will putr them into an array and use that array to make sure I do not accidently put them the plats..
+# I assume I will need a way to update this mnthly but one step at a time for now :)
+
+# so after I run freddies step one, I will have cusips in the below cvs file this puts them in an array and I use
+# that to make sure none wind up in the plats
+cusipscvs = 'cvs_readers/data/output/aretheseplats.cvs'
+
+with open(cusipscvs, newline='') as csvfile:
+    data = csv.reader(csvfile, delimiter=',')
+    headers = next(data)
+
+    cusipsnotplats = []
+
+    for row in data:
+        cusipsnotplats.append(row[0])
+
+# so this seems to work fine.. and yes I guess in theory each month I would run it normally than ceck it against the teh ecs file get these cusip and then rerun..
+# print(len(cusipsnotplats))
+
+
 # change this monthly
 data_path = 'cvs_readers/data/input/fd220204.txt'
 
@@ -91,7 +111,7 @@ with open(data_path, newline='') as csvfile:
 # we have two kinds of plats SCR or SCR - Mirrors so we are using starts with to find both of them
 # the SCR - Mirror do not appear to be labeled correctly we will deal wih that later
 # there are also some called the Multiples we briefly had them here now we do not
-            if row[34].startswith('SCR') or row[37].startswith('SCR'):
+            if (row[34].startswith('SCR') or row[37].startswith('SCR')) and cusip not in cusipsnotplats:
                 # I was looking for missing suips in our platinums table
                 # if row[34] == 'SCR - Mirror' or row[37] == 'SCR - Mirror':
 
