@@ -1,0 +1,93 @@
+create or replace PROCEDURE allfanniemirrors(ecsdate DATE, freddiebodiesdate DATE)
+language plpgsql
+as
+$$
+declare
+   
+    begin
+
+        CALL fanniemirrors(ecsdate);
+
+        CALL fanniebodymirrors(ecsdate, freddiebodiesdate);
+
+        CALL fannieplatmirrors(ecsdate);
+
+        CALL fannieplatbodymirrors(ecsdate, freddiebodiesdate);
+    end;
+
+$$;
+
+allfanniemirrors(ecsdate DATE, freddiebodiesdate DATE)
+
+call allfanniemirrors('2022-02-03', '2022-02-04');
+
+
+SELECT COUNT(*)
+FROM fanniemirrors f 
+INNER JOIN ecs e 
+ON f.cusip = e.fdonecusip;
+-- got zero whihc is great 
+
+
+SELECT COUNT(*)
+FROM fanniemirrors f 
+INNER JOIN ecs e 
+ON f.cusip = e.fdtwocusip;
+ count
+-------
+ 56540
+
+-- which is all of them so also great 
+
+-- I think I did check this before hmmm.... it's probablyt good can check the original face a bit more 
+
+
+create or replace PROCEDURE allfreddiemirrors(freddiesdate DATE, ecsdate DATE)
+language plpgsql
+as
+$$
+declare
+   
+    begin
+
+        CALL freddieswithoutmirrors(ecsdate);
+
+        CALL freddieswithadjusted(ecsdate);
+
+        CALL freddiesbodieswomirrors(freddiesdate, ecsdate);
+
+        CALL freddiesbodieswomirrorsadjustedcurrface(freddiesdate, ecsdate);
+
+    end;
+
+$$;
+
+allfreddiemirrors(freddiesdate DATE, ecsdate DATE)
+
+CALL allfreddiemirrors('2022-02-04', '2022-02-03');
+
+
+create or replace PROCEDURE allfreddieplatmirrors(freddiesdate DATE, ecsdate DATE)
+language plpgsql
+as
+$$
+declare
+   
+    begin
+
+        CALL freddiesplatswithoutmirrors(ecsdate);
+      
+        CALL freddiesplatswithadjusted(ecsdate);
+
+        CALL freddiebodieplatswomirrors(freddiesdate, ecsdate);
+
+        CALL freddiesbodieplatswomirrorsadjustedcurrface(freddiesdate, ecsdate);
+
+
+    end;
+
+$$;
+
+allfreddieplatmirrors(freddiesdate DATE, ecsdate DATE)
+
+CALL allfreddieplatmirrors('2022-02-04', '2022-02-03');

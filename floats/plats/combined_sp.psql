@@ -1,0 +1,20 @@
+create or replace PROCEDURE allfanniemirrorsfloat(fanniesdate DATE, ecsdate DATE)
+language plpgsql
+as
+$$
+declare
+   
+    begin
+    
+    CALL fanniemirrorsfloat( fanniesdate, ecsdate );
+    
+    CALL fanniemirrorscfincmo( fanniesdate, ecsdate );
+
+    end;
+
+$$
+;
+
+allfanniemirrorsfloat(fanniesdate DATE, ecsdate DATE)
+
+CALL allfanniemirrorsfloat('2022-02-04', '2022-02-03');

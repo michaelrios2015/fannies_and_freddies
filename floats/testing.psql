@@ -372,6 +372,15 @@ WHERE COALESCE(remainingbalance, 0) - COALESCE(cfincmos, 0) - COALESCE(cfinplats
  19180
 (1 row)
 
+SELECT COUNT(*)
+FROM fanniebodies
+WHERE COALESCE(remainingbalance, 0) - COALESCE(cfincmos, 0) < -10;
+-- this seems fine 
+
+SELECT COUNT(*)
+FROM fanniebodies
+WHERE COALESCE(remainingbalance, 0) - COALESCE(cfinplats, 0) < -10;
+
 
 SELECT *
 FROM fanniebodies
@@ -447,9 +456,9 @@ LIMIT 5;
 
 SELECT COUNT(*)
 FROM fanniemirrorbodies
-WHERE COALESCE(remainingbalance, 0) - COALESCE(cfincmos, 0) - COALESCE(cfinplats, 0) < 0;
+WHERE COALESCE(remainingbalance, 0) - COALESCE(cfincmos, 0) - COALESCE(cfinplats, 0) < -10;
 
--- these seem fine but tehre are only 211 so 
+-- 102 not a ton
 
 
 SELECT COUNT(*)
@@ -457,7 +466,7 @@ FROM fannieplatmirrorbodies
 WHERE COALESCE(remainingbalance, 0) - COALESCE(cfincmos, 0) - COALESCE(cfinplats, 0) < -10;
  count
 -------
-   143
+   41
 
 --    some here too but fannies is stil the main problem 
 

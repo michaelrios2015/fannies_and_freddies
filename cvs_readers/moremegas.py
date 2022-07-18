@@ -12,7 +12,7 @@ conn = psycopg2.connect(
 )
 
 # change this monthly will they always be named for this
-data_path = 'cvs_readers/data/input/MoreMegasJune19.txt'
+data_path = 'cvs_readers/data/input/test2.csv'
 
 # data_path = ['cvs_readers/data/input/collateral_items_giant_FHR.csv']
 
@@ -37,11 +37,13 @@ with open(data_path, newline='') as csvfile:
             poolcusip = row[1]
             # ofinplat = row[9]
 
-            ofinplat = str(row[2])
+            ofinplat = row[2]
+            # ofinplat = str(row[2])
 
-            for i in range(3, len(row)):
-                # print(row[i])
-                ofinplat += str(row[i])
+# this is if I get a number that has commas
+            # for i in range(3, len(row)):
+            #     # print(row[i])
+            #     ofinplat += str(row[i])
 
             # print(ofinplat)
 
