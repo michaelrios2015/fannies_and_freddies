@@ -664,8 +664,99 @@ ON f.cusip = e.fdonecusip
 INNER JOIN freddieplats p
 ON p.cusip = e.fdtwocusip;
 
+
 COPY 56329
 
 \copy aretheseplats to 'C:/Users/Public/aretheseplats' csv header;
 
 -- so we have a lot of those 
+
+-- CREATE TEMP TABLE cusips AS
+SELECT cusip
+FROM fanniebodies
+WHERE remainingbalance = cfincmos
+AND remainingbalance = cfinplats
+and factor > .1;
+
+
+\copy cusips to 'C:/Users/Public/cusips' csv header;
+
+
+31418UHR8
+
+     cmo     |   cusip   | faceincmo |    date
+-------------+-----------+-----------+------------
+ 2010-074-11 | 31418UHR8 |   3378654 | 2022-03-01
+
+  platcusip | poolcusip | ofinplat |    date
+-----------+-----------+----------+------------
+ 31374CRL2 | 31418UHR8 |  3378654 | 2021-06-01
+
+3138AWR62
+
+     cmo     |   cusip   | faceincmo |    date
+------------+-----------+-----------+------------
+ 2012-016-3 | 3138AWR62 |   8248372 | 2022-03-01
+
+  platcusip | poolcusip | ofinplat |    date
+-----------+-----------+----------+------------
+ 31374CN85 | 3138AWR62 |  8248372 | 2021-06-01
+
+ SELECT * from ofincmos where cusip IN  ('31418UHR8','3138AWR62', '3138ABPN3', '3138AFZ29', '31416YK98', '3138AYCX5'
+ , '3138A8JW7', '31402NM21', '31402QEH0', '31390VSX3', '3140QCKY1', '3140QCRE8', '3138XB2S2'
+ , '3140K3NR9', '3138MQZ97'
+ , '31411BQG1'
+ , '31402XN85'
+ , '3138AWRY1'
+ , '31400ASA7'
+ , '3138AYWZ8'
+ , '31410XWS1'
+ , '31402NMS4'
+ , '3140QCB88'
+ , '3138E24T9')
+ ORDER BY cusip ;
+
+  SELECT * from platinums where poolcusip IN  ('31418UHR8','3138AWR62', '3138ABPN3', '3138AFZ29', '31416YK98', '3138AYCX5'
+ , '3138A8JW7', '31402NM21', '31402QEH0', '31390VSX3', '3140QCKY1', '3140QCRE8', '3138XB2S2'
+ , '3140K3NR9', '3138MQZ97'
+ , '31411BQG1'
+ , '31402XN85'
+ , '3138AWRY1'
+ , '31400ASA7'
+ , '3138AYWZ8'
+ , '31410XWS1'
+ , '31402NMS4'
+ , '3140QCB88'
+ , '3138E24T9') 
+ ORDER BY poolcusip ;
+
+ SELECT * 
+ from ofincmos 
+ INNER JOIN (
+ 
+  SELECT * from platinums where poolcusip IN  ('31418UHR8','3138AWR62', '3138ABPN3', '3138AFZ29', '31416YK98', '3138AYCX5'
+ , '3138A8JW7', '31402NM21', '31402QEH0', '31390VSX3', '3140QCKY1', '3140QCRE8', '3138XB2S2'
+ , '3140K3NR9', '3138MQZ97'
+ , '31411BQG1'
+ , '31402XN85'
+ , '3138AWRY1'
+ , '31400ASA7'
+ , '3138AYWZ8'
+ , '31410XWS1'
+ , '31402NMS4'
+ , '3140QCB88'
+ , '3138E24T9') 
+) AS a 
+ON ofincmos.cusip = a.poolcusip
+ where cusip IN  ('31418UHR8','3138AWR62', '3138ABPN3', '3138AFZ29', '31416YK98', '3138AYCX5'
+ , '3138A8JW7', '31402NM21', '31402QEH0', '31390VSX3', '3140QCKY1', '3140QCRE8', '3138XB2S2'
+ , '3140K3NR9', '3138MQZ97'
+ , '31411BQG1'
+ , '31402XN85'
+ , '3138AWRY1'
+ , '31400ASA7'
+ , '3138AYWZ8'
+ , '31410XWS1'
+ , '31402NMS4'
+ , '3140QCB88'
+ , '3138E24T9')
