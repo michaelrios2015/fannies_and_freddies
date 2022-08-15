@@ -760,3 +760,70 @@ ON ofincmos.cusip = a.poolcusip
  , '31402NMS4'
  , '3140QCB88'
  , '3138E24T9')
+
+-- trying to figure out floats 
+
+CREATE TEMP TABLE plats AS
+SELECT * 
+from fannieplats 
+where name LIKE '310%';
+
+
+-- CREATE TEMP TABLE step2 AS
+-- SELECT COUNT(*) 
+SELECT * 
+FROM plats p
+inner jOIN ofincmos o 
+ON p.cusip = o.cusip
+AND p.originalface = o.faceincmo
+-- INNER JOIN platinums pl
+-- ON p.cusip = pl.poolcusip
+LIMIT 4;
+
+
+CREATE TEMP TABLE step2 AS
+SELECT  p.cusip,
+        p.name,
+        p.originalface,
+        o.cmo,
+        o.faceincmo
+FROM plats p
+inner jOIN ofincmos o 
+ON p.cusip = o.cusip;
+-- AND p.originalface = o.faceincmo
+-- INNER JOIN platinums pl
+-- ON p.cusip = pl.poolcusip
+LIMIT 4;
+
+-- GROUP BY p.cusip
+-- Limit 4 
+
+
+SELECT * 
+FROM step2 p
+inner jOIN platinums o 
+ON p.cusip = o.poolcusip
+Limit 4; 
+
+CREATE TEMP TABLE step3 as
+SELECT 
+        cusip,
+       originalface,
+       sum(faceincmo) AS faceincmo
+FROM step2 
+GROUP BY cusip, originalface;
+-- HAVING originalface = sum(faceincmo); 
+Limit 4; 
+
+SELECT count(*) 
+from step3
+where originalface = faceincmo
+
+
+SELECT p.cusip
+       p.originalface,
+       sum(faceincmo), 
+FROM step2 p
+inner jOIN platinums o 
+ON p.cusip = o.poolcusip
+Limit 4; 
