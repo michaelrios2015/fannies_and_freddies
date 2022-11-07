@@ -827,3 +827,68 @@ FROM step2 p
 inner jOIN platinums o 
 ON p.cusip = o.poolcusip
 Limit 4; 
+
+---- 11/6/22 just trying to see which of the 310XXX have negative floats 
+
+CREATE TEMP TABLE plats AS
+SELECT * 
+from fannieplats 
+where name LIKE '310%';
+
+SELECT *,
+COALESCE(remainingbalance) - COALESCE(cfincmos, 0) - COALESCE(cfinplats, 0) AS float 
+FROM fannieplatbodies f
+INNER JOIN plats p
+ON f.cusip = p.cusip
+WHERE COALESCE(remainingbalance) - COALESCE(cfincmos, 0) - COALESCE(cfinplats, 0) < -1
+ORDER by float ASC
+LIMIT 5;
+
+--- so those were my 200 310XXX pools... none have a float of less then -1 which is really just 
+-- in the margin of errors so 
+
+SELECT 
+    cusip, 
+    remainingbalance,
+    cfincmos,
+    cfinplats,
+    COALESCE(remainingbalance) - COALESCE(cfincmos, 0) - COALESCE(cfinplats, 0) AS float 
+FROM fannieplatbodies f
+WHERE COALESCE(remainingbalance) - COALESCE(cfincmos, 0) - COALESCE(cfinplats, 0) < -1
+ORDER by float ASC
+LIMIT 5;
+
+   cusip   | coupon | remainingbalance |   factor   | gwac  | wam | wala |    date    | istbaelig |     cfincmos      |     cfinplats      |        float
+-----------+--------+------------------+------------+-------+-----+------+------------+-----------+-------------------+--------------------+---------------------
+ 31402Q2R1 |    5.5 |      73082744.29 | 0.01461655 | 5.936 | 130 |  217 | 2022-04-01 | none      |       73082744.29 |  56217495.59082706 |  -56217495.59082706
+ 31416CFE1 |    5.5 |      49516599.66 | 0.05125281 | 6.006 | 143 |  205 | 2022-04-01 | 30 year   | 46376682.78992661 |  45005255.39983197 |  -41865338.52975859
+ 31416CFD3 |    5.5 |      53875423.69 |  0.0443359 | 6.123 | 170 |  177 | 2022-04-01 | 30 year   | 40609941.67036789 |  49970370.99849149 |  -36704888.97885938
+ 3138EKAN5 |      3 |      22897046.15 | 0.12531445 | 3.676 | 234 |  114 | 2022-04-01 | none      |       22897046.15 | 14151937.371065514 | -14151937.371065514
+ 31418MK27 |    5.5 |      18171900.55 | 0.03100088 | 5.932 | 134 |  214 | 2022-04-01 | none      |       18171900.55 | 13978385.033692172 | -13978385.033692172
+
+-- so these are my top five offending fannie plats or whatever 
+
+    cusip   | remainingbalance |     cfincmos      |     cfinplats      |        float
+-----------+------------------+-------------------+--------------------+---------------------
+ 31402Q2R1 |      73,082,744.29 |       73,082,744.29 |  56,217,495.59082706 |  -56,217,495.59082706
+ 31416CFE1 |      49,516,599.66 | 46,376,682.78992661 |  45,005,255.39983197 |  -41,865,338.52975859
+ 31416CFD3 |      53,875,423.69 | 40,609,941.67036789 |  49,970,370.99849149 |  -36,704,888.97885938
+ 3138EKAN5 |      22,897,046.15 |       22,897,046.15 | 14,151,937.371065514 | -14,151,937.371065514
+ 31418MK27 |      18,171,900.55 |       18,171,900.55 | 13,978,385.033692172 | -13,978,385.033692172
+
+ -- so are the cmos wrong 
+
+SELECT * from ofincmos where cusip = '31402Q2R1';
+    cmo     |   cusip   | faceincmo  |    date
+------------+-----------+------------+------------
+ 2011-053-2 | 31402Q2R1 | 5,000,000,000 | 2022-03-01
+
+-- so this is the fannie plat with the largest negative float 
+
+--I have this 
+
+GS	*	FNR 2011-53	CMO	FNCL 5	05/01/11	05/27/11	4,923	USD	US	
+
+-- is that the same thing
+
+so we are looking for the pools that make up the 310XXX supers seeing if they have negative float and then seeing if they have a cmo problem  
