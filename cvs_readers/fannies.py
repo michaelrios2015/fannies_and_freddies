@@ -27,6 +27,7 @@ with open(data_path, newline='') as csvfile:
 
         # print(row[17])
         # break
+        # so this is noyt terribly good code as I have a lot of duplicate code but it's fine
         if row[34] != 'SCR' and row[37] != 'SCR':
 
             try:
@@ -85,6 +86,12 @@ with open(data_path, newline='') as csvfile:
                 issuedate = row[11]
                 maturitydate = row[12]
                 originalface = float(row[14])
+
+                end_date = datetime(int(maturitydate[2:6]), int(
+                    maturitydate[0:2]), 1)
+
+                start_date = datetime(int(issuedate[4:8]), int(
+                    issuedate[0:2]), int(issuedate[2:4]))
 
                 plathead.append([cusip, name, indicator, start_date.date(),
                                  end_date.date(), originalface])
